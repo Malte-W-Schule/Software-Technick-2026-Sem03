@@ -1,0 +1,55 @@
+openapi: 3.0.0
+info:
+  title: "Softwaretechnik Campus Minden - Event System"
+  version: "1.0.0"
+
+# Das ist der 'Server' Teil - ganz simpel
+servers:
+  - url: http://api.deinprojekt.de
+    description: Haupt-Server
+
+paths:
+  /events:
+    get:
+      tags:
+        - Eventverwaltung
+      summary: "Liste aller Events"
+      responses:
+        '200':
+          description: "Erfolgreich"
+    post:
+      tags:
+        - Eventverwaltung
+      summary: "Neues Event anlegen"
+      responses:
+        '201':
+          description: "Event erstellt"
+
+  /events/{id}:
+    get:
+      tags:
+        - Eventverwaltung
+      summary: "Details eines Events"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: "Details gefunden"
+    put:
+      tags:
+        - Eventverwaltung
+      summary: "Event Bearbeiten"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: "Details gefunden"
+      
