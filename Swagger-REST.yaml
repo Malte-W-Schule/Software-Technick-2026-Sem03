@@ -5,30 +5,52 @@ info:
 
 # Das ist der 'Server' Teil - ganz simpel
 servers:
-  - url: http://api.deinprojekt.de
+  - url: http://api.deinprojekt.de #todo Change to real URL
     description: Haupt-Server
 
+tags:
+  - name: Eventverwaltung
+    description: Events erstellen, suchen, filtern und Tickets
+  - name: Kundenverwaltung
+    description: User Accounts, Registrierung, Login und Profileinstellungen
+  - name: Gruppenverwaltung
+    description: Gruppen, Mitglieder, Matchmaking und Codes
+  - name: Notizen & Kommunikation
+    description: Notizen, Freitext, Termine (Sync), Chat
+  - name: Umfragen
+    description: Dynamische Umfragen und Abstimmungen
+  - name: Aufgaben
+    description: Aufgaben, Zeitpläne und Zuweisungen
+  - name: Finanzverwaltung (Gruppe)
+    description: Ausgaben, Einzahlungen, Kassensturz und Rückerstattungen
+  - name: Dienstleister & Anfragen
+    description: Anfrage, Angebote, Konvertierung und Bewertungen
+  - name: Materialverwaltung
+    description: Equipment, Kategorien, Buchungen und Amortisation
+  - name: Personalverwaltung
+    description: Mitarbeiter, Zuweisungen und Arbeitspläne
+  - name: Rechnungsverwaltung
+    description: Rechnungen, Mahnungen und Zahlungsstatus
+
 paths:
+  # --- Eventverwaltung ---
   /events:
     get:
-      tags:
-        - Eventverwaltung
+      tags: [Eventverwaltung]
       summary: "Liste aller Events"
       responses:
-        '200':
+        "200":
           description: "Erfolgreich"
     post:
-      tags:
-        - Eventverwaltung
+      tags: [Eventverwaltung]
       summary: "Neues Event anlegen"
       responses:
-        '201':
+        "201":
           description: "Event erstellt"
 
   /events/{id}:
     get:
-      tags:
-        - Eventverwaltung
+      tags: [Eventverwaltung]
       summary: "Details eines Events"
       parameters:
         - name: id
@@ -37,11 +59,10 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: "Details gefunden"
     put:
-      tags:
-        - Eventverwaltung
+      tags: [Eventverwaltung]
       summary: "Event Bearbeiten"
       parameters:
         - name: id
@@ -50,6 +71,121 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: "Details gefunden"
-      
+    delete:
+      tags: [Eventverwaltung]
+      summary: "Event löschen"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"
+
+  /kunden/:
+    get:
+      tags: [Kundenverwaltung]
+      summary: "Liste aller Kunden"
+      responses:
+        "200":
+          description: "Erfolgreich"
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Neuen Kunden anlegen"
+      responses:
+        "201":
+          description: "Kunde erstellt"
+
+  /kunden/{id}:
+    get:
+      tags: [Kundenverwaltung]
+      summary: "Details eines Kunden"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"
+    put:
+      tags: [Kundenverwaltung]
+      summary: "Kunden Bearbeiten"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"
+    delete:
+      tags: [Kundenverwaltung]
+      summary: "Kunden löschen"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"
+
+  /gruppen:
+    get:
+      tags: [Gruppenverwaltung]
+      summary: "Liste aller Gruppen"
+      responses:
+        "200":
+          description: "Erfolgreich"
+    post:
+      tags: [Gruppenverwaltung]
+      summary: "Neue Gruppe anlegen"
+      responses:
+        "201":
+          description: "Gruppe erstellt"
+
+  /gruppen/{id}:
+    get:
+      tags: [Gruppenverwaltung]
+      summary: "Details einer Gruppe"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"
+    put:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppe Bearbeiten"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"
+    delete:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppe löschen"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details gefunden"

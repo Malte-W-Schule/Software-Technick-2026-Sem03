@@ -1,0 +1,1108 @@
+openapi: 3.0.0
+info:
+  title: "Softwaretechnik Campus Minden - Event System Microservices API"
+  description: "Erweiterte API-Dokumentation basierend auf Microservice-Architektur und User Stories (Notizen, Umfragen, Finanzen, Dienstleister, etc.)"
+  version: "2.0.0"
+
+servers:
+  - url: http://api.event-system.de/v1
+    description: Haupt-API Gateway
+
+tags:
+  - name: Kundenverwaltung
+    description: User Accounts, Registrierung, Login und Profileinstellungen
+  - name: Eventverwaltung
+    description: Events erstellen, suchen, filtern und Tickets
+  - name: Gruppenverwaltung
+    description: Gruppen, Mitglieder, Matchmaking und Codes
+  - name: Notizen & Kommunikation
+    description: Notizen, Freitext, Termine (Sync), Chat
+  - name: Umfragen
+    description: Dynamische Umfragen und Abstimmungen
+  - name: Aufgaben
+    description: Aufgaben, Zeitpläne und Zuweisungen
+  - name: Finanzverwaltung (Gruppe)
+    description: Ausgaben, Einzahlungen, Kassensturz und Rückerstattungen
+  - name: Dienstleister & Anfragen
+    description: Anfrage, Angebote, Konvertierung und Bewertungen
+  - name: Materialverwaltung
+    description: Equipment, Kategorien, Buchungen und Amortisation
+  - name: Personalverwaltung
+    description: Mitarbeiter, Zuweisungen und Arbeitspläne
+  - name: Rechnungsverwaltung
+    description: Rechnungen, Mahnungen und Zahlungsstatus
+
+paths:
+  # --- Kundenverwaltung ---
+  /auth/register:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Konto erstellen"
+      description: "Registrierung inkl. Rolle (Privat/Institution/Kommerziell), Telefonnummer (2FA) und bevorzugter Datenkommunikation."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, role]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [privat, institution, kommerziell]
+                phone:
+                  type: string
+                preferred_communication:
+                  type: string
+                  enum: [email, sms, whatsapp]
+      responses:
+        "201":
+          description: "Konto erfolgreich erstellt"
+
+  /auth/login:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Anmelden"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: "Erfolgreicher Login, JWT Token zurückgegeben"
+
+  /users/me:
+    get:
+      tags: [Kundenverwaltung]
+      summary: "Eigenes Profil abrufen"
+      responses:
+        "200":
+          description: "Profildaten"
+    put:
+      tags: [Kundenverwaltung]
+      summary: "Profildaten & Präferenzen aktualisieren"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                preferred_communication:
+                  type: string
+                  enum: [email, sms, whatsapp]
+      responses:
+        "200":
+          description: "Aktualisiert"
+    delete:
+      tags: [Kundenverwaltung]
+      summary: "Konto löschen"
+      description: "Löscht das Konto und entfernt alle persönlichen Zuordnungen."
+      responses:
+        "204":
+          description: "Gelöscht"
+
+  # --- Eventverwaltung ---
+  /events:
+    get:
+      tags: [Eventverwaltung]
+      summary: "Events suchen und filtern"
+      description: "Filtern nach Datum, Veranstalter, Radius, Privat/Öffentlich."
+      parameters:
+        - name: radius
+          in: query
+          schema:
+            type: integer
+          description: "Suchradius in Kilometern"
+        - name: organizerId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste von Events"
+    post:
+      tags: [Eventverwaltung]
+      summary: "Event erstellen"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, start_date, location]
+              properties:
+                name:
+                  type: string
+                start_date:
+                  type: string
+                  format: date-time
+                location:
+                  type: string
+                is_public:
+                  type: boolean
+      responses:
+        "201":
+          description: "Event erstellt"
+
+  /events/{eventId}:
+    get:
+      tags: [Eventverwaltung]
+      summary: "Details eines Events / Event Homepage"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Event Details inkl. Finanzstatus und QR Code URL"
+    put:
+      tags: [Eventverwaltung]
+      summary: "Event bearbeiten"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                location:
+                  type: string
+      responses:
+        "200":
+          description: "Aktualisiert"
+    delete:
+      tags: [Eventverwaltung]
+      summary: "Event löschen / archivieren"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Gelöscht/Archiviert"
+
+  /events/{eventId}/tickets: #todo übergucken
+    post:
+      tags: [Eventverwaltung]
+      summary: "Ticket kaufen (Ticketing Integration)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket_type:
+                  type: string
+                quantity:
+                  type: integer
+      responses:
+        "201":
+          description: "Ticket generiert (PDF/QR Code)"
+
+  # --- Gruppenverwaltung ---
+  /groups:
+    get:
+      tags: [Gruppenverwaltung]
+      summary: "Meine Gruppen anzeigen (sortierbar)"
+      responses:
+        "200":
+          description: "Liste der Gruppen"
+    post:
+      tags: [Gruppenverwaltung]
+      summary: "Neue Gruppe erstellen"
+      description: "Kann einen optionalen Zeitrahmen für auto-löschen/archivieren beinhalten."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                valid_until:
+                  type: string
+                  format: date-time
+      responses:
+        "201":
+          description: "Gruppe erstellt inkl. Beitritts-Code"
+
+  /groups/{groupId}:
+    get:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppendetails"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Gruppendaten"
+    put:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppe verwalten (Admin)"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "200":
+          description: "Gespeichert"
+    delete:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppe löschen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Gelöscht"
+
+  /groups/join:
+    post:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppe per Beitritts-Code beitreten"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [join_code]
+              properties:
+                join_code:
+                  type: string
+      responses:
+        "200":
+          description: "Erfolgreich beigetreten"
+
+  /groups/{groupId}/leave:
+    post:
+      tags: [Gruppenverwaltung]
+      summary: "Gruppe verlassen"
+      description: "Ein POST-Request wird hier verwendet anstelle von DELETE /members/{id}, da das Verlassen eine komplexe Transaktion darstellt. Optionale Parameter wie der Grund oder die Zuweisung eines neuen Admins (falls der Gruppenleiter austritt) können im RequestBody übergeben werden. Das System bereinigt danach automatisch Einzahlungen und Aufgaben."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: "Optionaler Grund für das Verlassen"
+                new_admin_id:
+                  type: integer
+                  description: "Falls der Leiter die Gruppe verlässt, muss ein neuer Admin ernannt werden."
+      responses:
+        "200":
+          description: "Verlassen, Daten/Einzahlungen bereinigt"
+
+  /groups/{groupId}/members:
+    get:
+      tags: [Gruppenverwaltung]
+      summary: "Mitgliederliste anzeigen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Mitglieder inkl. Rollen"
+
+  /groups/{groupId}/members/{userId}:
+    delete:
+      tags: [Gruppenverwaltung]
+      summary: "Mitglied entfernen / sperren (Admin)"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: block
+          in: query
+          schema:
+            type: boolean
+          description: "Falls true, wird der Nutzer für diese Gruppe komplett gesperrt."
+      responses:
+        "204":
+          description: "Entfernt"
+
+  /groups/{groupId}/matchmaking:
+    get:
+      tags: [Gruppenverwaltung]
+      summary: "Matchmaking - Andere suchende Personen finden"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste potenzieller Matches"
+
+  # --- Notizen & Kommunikation ---
+  /groups/{groupId}/notes:
+    get:
+      tags: [Notizen & Kommunikation]
+      summary: "Notizen abrufen"
+      description: "Sortiert nach Erstellungsdatum (neueste oben). Filterbar nach Typ/Kategorie."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: "Zum Filtern der Notizen, z.B. nach 'Termin' oder 'Allgemein'"
+      responses:
+        "200":
+          description: "Liste von Notizen (farblich markiert je nach Typ)"
+    post:
+      tags: [Notizen & Kommunikation]
+      summary: "Notiz (Anmerkung/Termin) erstellen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, note_type]
+              properties:
+                text:
+                  type: string
+                note_type:
+                  type: string
+                  enum: [anmerkung, termin, info]
+                color:
+                  type: string
+                date:
+                  type: string
+                  format: date-time
+                transport_info:
+                  type: string
+                  description: "Zusatzinformationen bei Terminen (z.B. Gleis, Zugnummer)"
+      responses:
+        "201":
+          description: "Erstellt (Trigger für Google Calendar Sync bei Terminen)"
+
+  /groups/{groupId}/notes/{noteId}:
+    put:
+      tags: [Notizen & Kommunikation]
+      summary: "Notiz ändern"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                date:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: "Geändert"
+    delete:
+      tags: [Notizen & Kommunikation]
+      summary: "Notiz löschen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Gelöscht"
+
+  # --- Umfragen ---
+  /groups/{groupId}/polls:
+    post:
+      tags: [Umfragen]
+      summary: "Umfrage erstellen"
+      description: "Dynamische Anzahl an Antwortmöglichkeiten. Option für Mehrfachauswahl."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, options]
+              properties:
+                question:
+                  type: string
+                options:
+                  type: array
+                  items:
+                    type: string
+                allow_multiple:
+                  type: boolean
+                  default: false
+      responses:
+        "201":
+          description: "Erstellt"
+
+  /groups/{groupId}/polls/{pollId}/vote:
+    post:
+      tags: [Umfragen]
+      summary: "An Umfrage teilnehmen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selected_options]
+              properties:
+                selected_options:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: "Abgestimmt"
+
+  # --- Aufgaben ---
+  /groups/{groupId}/tasks:
+    get:
+      tags: [Aufgaben]
+      summary: "Zeitpläne und Aufgaben abrufen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Aufgaben"
+    post:
+      tags: [Aufgaben]
+      summary: "Aufgabe erstellen und zuweisen"
+      description: "Zuweisung an bereite Mitglieder. Automatische Erinnerung bei anstehender Deadline."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                assignee_id:
+                  type: integer
+                deadline:
+                  type: string
+                  format: date-time
+      responses:
+        "201":
+          description: "Erstellt"
+
+  /groups/{groupId}/tasks/{taskId}/complete:
+    put:
+      tags: [Aufgaben]
+      summary: "Aufgabe als fertig markieren"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Erledigt"
+
+  # --- Finanzverwaltung (Gruppe) ---
+  /groups/{groupId}/finances/expenses:
+    get:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Ausgabenliste anzeigen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Wer hat wie viel für was bezahlt"
+    post:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Ausgabe eintragen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description, amount]
+              properties:
+                description:
+                  type: string
+                amount:
+                  type: number
+      responses:
+        "201":
+          description: "Eingetragen"
+
+  /groups/{groupId}/finances/payments:
+    post:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Geldsumme einzahlen / Überweisen"
+      description: "Bei Mindestbetrag wird dieser geprüft. Löst Dankesnachricht aus."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, method]
+              properties:
+                amount:
+                  type: number
+                method:
+                  type: string
+                  description: "Zahlungsmethode (Kreditkarte, PayPal, Überweisung etc.)"
+      responses:
+        "200":
+          description: "Einzahlung registriert"
+
+  /groups/{groupId}/finances/balance:
+    get:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Kassensturz"
+      description: "Gesamteinnahmen, Gesamtausgaben, Saldo pro Person."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Zusammenfassung Finance"
+
+  /groups/{groupId}/finances/refund:
+    post:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Rückzahlung veranlassen (Organisator)"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, amount]
+              properties:
+                user_id:
+                  type: integer
+                amount:
+                  type: number
+      responses:
+        "200":
+          description: "Rückzahlung initiiert"
+
+  # --- Dienstleister & Anfragen ---
+  /providers/{providerId}/requests:
+    post:
+      tags: [Dienstleister & Anfragen]
+      summary: "Veranstaltungsanfrage senden (Kunde)"
+      description: "Ort, Zeit, Budget, Spielraum."
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [location, start_date, end_date, budget]
+              properties:
+                location:
+                  type: string
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+                budget:
+                  type: number
+                budget_flexibility:
+                  type: number
+                  description: "Budget Spielraum in Prozent oder absolut"
+      responses:
+        "201":
+          description: "Anfrage gesendet"
+
+  /providers/offers:
+    post:
+      tags: [Dienstleister & Anfragen]
+      summary: "Angebot generieren"
+      description: "Wird automatisch per E-Mail versendet."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id, total_price, material_list]
+              properties:
+                request_id:
+                  type: integer
+                total_price:
+                  type: number
+                material_list:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        "201":
+          description: "Angebot generiert"
+
+  /providers/offers/{offerId}/convert:
+    post:
+      tags: [Dienstleister & Anfragen]
+      summary: "Veranstaltungsanfrage zu Event konvertieren"
+      parameters:
+        - name: offerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "In Event umgewandelt"
+
+  /providers/{providerId}/reviews:
+    get:
+      tags: [Dienstleister & Anfragen]
+      summary: "Bewertungen des Dienstleisters einsehen"
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Sterne & Kommentare"
+    post:
+      tags: [Dienstleister & Anfragen]
+      summary: "Dienstleister bewerten (Veranstalter)"
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+      responses:
+        "201":
+          description: "Bewertung abgegeben"
+
+  # --- Materialverwaltung ---
+  /materials:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Material filtern / suchen"
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Materialliste"
+    post:
+      tags: [Materialverwaltung]
+      summary: "Material hinzufügen"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, category, on_day_price]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                on_day_price:
+                  type: number
+                maintenance_cycle:
+                  type: integer
+                  description: "Wartungszyklus in Tagen"
+      responses:
+        "201":
+          description: "Hinzugefügt"
+
+  /materials/categories:
+    post:
+      tags: [Materialverwaltung]
+      summary: "Material Kategorie hinzufügen"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: "Erstellt"
+    delete:
+      tags: [Materialverwaltung]
+      summary: "Material Kategorie löschen"
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Gelöscht (sofern leer)"
+
+  /materials/{materialId}/book:
+    post:
+      tags: [Materialverwaltung]
+      summary: "Material buchen"
+      description: "On-Days und Off-Days (rabattiert) definieren. Beachtet Verfügbarkeit und Verleih-Historie."
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, on_days, off_days]
+              properties:
+                event_id:
+                  type: integer
+                on_days:
+                  type: integer
+                off_days:
+                  type: integer
+      responses:
+        "200":
+          description: "Gebucht"
+
+  # --- Personalverwaltung ---
+  /employees:
+    get:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter filtern / suchen"
+      parameters:
+        - name: qualification
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Mitarbeiterliste"
+    post:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter hinzufügen"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, qualification, field]
+              properties:
+                name:
+                  type: string
+                qualification:
+                  type: string
+                field:
+                  type: string
+                driver_license:
+                  type: string
+      responses:
+        "201":
+          description: "Hinzugefügt"
+
+  /employees/{employeeId}/assign:
+    post:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter einem Event zuordnen"
+      description: "Prüft Verfügbarkeit. Sendet automatische Benachrichtigung."
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id]
+              properties:
+                event_id:
+                  type: integer
+      responses:
+        "200":
+          description: "Zugeordnet"
+
+  /employees/{employeeId}/schedule:
+    get:
+      tags: [Personalverwaltung]
+      summary: "Zeit-/Arbeitsplan anzeigen"
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Kalendarische Anzeige"
+
+  # --- Rechnungsverwaltung ---
+  /invoices:
+    get:
+      tags: [Rechnungsverwaltung]
+      summary: "Rechnungen filtern"
+      description: "z.B. nach 'bezahlt' oder 'nicht bezahlt'."
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [bezahlt, offen, mahnung]
+      responses:
+        "200":
+          description: "Rechnungsliste"
+    post:
+      tags: [Rechnungsverwaltung]
+      summary: "Rechnung generieren"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id]
+              properties:
+                event_id:
+                  type: integer
+      responses:
+        "201":
+          description: "Rechnung erstellt und zugestellt"
+
+  /invoices/{invoiceId}/pay:
+    put:
+      tags: [Rechnungsverwaltung]
+      summary: "Event/Rechnung als bezahlt markieren"
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Bezahlt"
+
+  /invoices/{invoiceId}/remind:
+    post:
+      tags: [Rechnungsverwaltung]
+      summary: "Mahnung/Erinnerung erstellen"
+      description: "Automatische Erinnerung nach X Tagen oder manuelle Mahngebühr."
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fee:
+                  type: number
+                  description: "Optionale Mahngebühr in Euro"
+      responses:
+        "200":
+          description: "Mahnung versendet"
