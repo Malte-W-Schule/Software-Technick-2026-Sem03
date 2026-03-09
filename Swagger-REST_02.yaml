@@ -641,7 +641,27 @@ paths:
         "200":
           description: "Erledigt"
 
+  /groups/{groupId}/tasks/{taskId}:
+    delete:
+      tags: [Aufgaben]
+      summary: "Aufgabe löschen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Erledigt"
+
   # --- Finanzverwaltung (Gruppe) ---
+  #todo think about user id when paying?
   /groups/{groupId}/finances/expenses:
     get:
       tags: [Finanzverwaltung (Gruppe)]
@@ -786,7 +806,7 @@ paths:
         "201":
           description: "Anfrage gesendet"
 
-  /providers/offers:
+  /providers/offers/generate:
     post:
       tags: [Dienstleister & Anfragen]
       summary: "Angebot generieren"
@@ -866,7 +886,8 @@ paths:
           description: "Bewertung abgegeben"
 
   # --- Materialverwaltung ---
-  /materials:
+  # material id? string input?
+  /materials{materialId}:
     get:
       tags: [Materialverwaltung]
       summary: "Material filtern / suchen"
@@ -901,6 +922,18 @@ paths:
       responses:
         "201":
           description: "Hinzugefügt"
+    delete:
+      tags: [Materialverwaltung]
+      summary: "Material löschen"
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Gelöscht (sofern leer)"
 
   /materials/categories:
     post:
