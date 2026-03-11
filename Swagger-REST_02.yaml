@@ -59,6 +59,9 @@ paths:
                 preferred_communication:
                   type: string
                   enum: [email, sms, whatsapp]
+                privacy_policy_accepted:
+                  type: boolean
+                  description: "Zustimmung zu den Datenschutzrichtlinien erforderlich"
       responses:
         "201":
           description: "Konto erfolgreich erstellt"
@@ -82,6 +85,44 @@ paths:
       responses:
         "200":
           description: "Erfolgreicher Login, JWT Token zurückgegeben"
+
+  /auth/forgot-password:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Passwort zurücksetzen (E-Mail anfordern)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+      responses:
+        "200":
+          description: "E-Mail mit Reset-Link gesendet"
+
+  /auth/reset-password:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Neues Passwort setzen"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        "200":
+          description: "Passwort erfolgreich zurückgesetzt"
 
   /users/me:
     get:
@@ -115,6 +156,40 @@ paths:
       responses:
         "204":
           description: "Gelöscht"
+
+  /users/me/events:
+    get:
+      tags: [Kundenverwaltung]
+      summary: "Meine Eventliste anzeigen (Teilnehmer/Organisator/Interessiert)"
+      description: "Liste der Events, nach Merkmalen sortier- und filterbar."
+      parameters:
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [date, is_public, participants, organizer]
+      responses:
+        "200":
+          description: "Persönliche Eventliste"
+
+  /users/me/subscription:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Premium Abo abschließen / Zahlungsart angeben"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method]
+              properties:
+                payment_method:
+                  type: string
+                  enum: [paypal, credit_card, sepa]
+      responses:
+        "200":
+          description: "Abo erfolgreich abgeschlossen"
 
   # --- Eventverwaltung ---
   /events:
@@ -155,6 +230,12 @@ paths:
                   type: string
                 is_public:
                   type: boolean
+                min_participants:
+                  type: integer
+                  description: "Mindestanzahl an Teilnehmern für das Event"
+                min_budget:
+                  type: number
+                  description: "Mindest-Geldsumme für das Event"
       responses:
         "201":
           description: "Event erstellt"
@@ -208,7 +289,102 @@ paths:
         "204":
           description: "Gelöscht/Archiviert"
 
-  /events/{eventId}/tickets: #todo übergucken
+  /events/{eventId}/interested:
+    post:
+      tags: [Eventverwaltung]
+      summary: "Event zur eigenen Beobachtungsliste hinzufügen"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Zur Liste hinzugefügt"
+
+  /events/{eventId}/comments:
+    get:
+      tags: [Eventverwaltung]
+      summary: "Event kommentieren und bewerten (Medien abrufen)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste an Videos, Bildern und Kommentaren"
+    post:
+      tags: [Eventverwaltung]
+      summary: "Kommentare, Videos und Bilder für ein Event hochladen"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+                  description: "Optionales Bild oder Video"
+      responses:
+        "201":
+          description: "Medium/Kommentar hochgeladen"
+
+  /events/{eventId}/resources:
+    get:
+      tags: [Eventverwaltung]
+      summary: "Gesamtübersicht gebuchter Ressourcen (Personal & Material)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste aller zugewiesenen Mitarbeiter & gebuchten Materialien"
+
+  /events/{eventId}/ticket-types:
+    post:
+      tags: [Eventverwaltung]
+      summary: "Ticket-Typ erstellen (Veranstalter)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price, quantity]
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+                quantity:
+                  type: integer
+      responses:
+        "201":
+          description: "Ticket-Typ erstellt"
+
+  /events/{eventId}/tickets:
     post:
       tags: [Eventverwaltung]
       summary: "Ticket kaufen (Ticketing Integration)"
@@ -238,6 +414,12 @@ paths:
     get:
       tags: [Gruppenverwaltung]
       summary: "Meine Gruppen anzeigen (sortierbar)"
+      parameters:
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [name, created_at, role]
       responses:
         "200":
           description: "Liste der Gruppen"
@@ -260,6 +442,9 @@ paths:
                 valid_until:
                   type: string
                   format: date-time
+                min_contribution_per_member:
+                  type: number
+                  description: "Mindest-Geldbetrag eines Gruppenmitglieds"
       responses:
         "201":
           description: "Gruppe erstellt inkl. Beitritts-Code"
@@ -373,6 +558,36 @@ paths:
         "200":
           description: "Liste der Mitglieder inkl. Rollen"
 
+  /groups/{groupId}/members/{userId}/role:
+    put:
+      tags: [Gruppenverwaltung]
+      summary: "Rolle/Rechte zuweisen (Admin)"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [admin, read_only, member]
+      responses:
+        "200":
+          description: "Rolle aktualisiert"
+
   /groups/{groupId}/members/{userId}:
     delete:
       tags: [Gruppenverwaltung]
@@ -410,8 +625,67 @@ paths:
       responses:
         "200":
           description: "Liste potenzieller Matches"
+    put:
+      tags: [Gruppenverwaltung]
+      summary: "Eigenen Matchmaking-Status setzen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_searching]
+              properties:
+                is_searching:
+                  type: boolean
+                  description: "Als 'Suche noch Personen' markieren."
+      responses:
+        "200":
+          description: "Status aktualisiert"
 
   # --- Notizen & Kommunikation ---
+  /groups/{groupId}/messages:
+    get:
+      tags: [Notizen & Kommunikation]
+      summary: "Chat-Nachrichten abrufen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Chat-Nachrichten"
+    post:
+      tags: [Notizen & Kommunikation]
+      summary: "Nachricht senden"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+      responses:
+        "201":
+          description: "Nachricht gesendet"
+
   /groups/{groupId}/notes:
     get:
       tags: [Notizen & Kommunikation]
@@ -515,6 +789,18 @@ paths:
 
   # --- Umfragen ---
   /groups/{groupId}/polls:
+    get:
+      tags: [Umfragen]
+      summary: "Umfragen abrufen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste an Umfragen und Ergebnissen"
     post:
       tags: [Umfragen]
       summary: "Umfrage erstellen"
@@ -578,6 +864,31 @@ paths:
           description: "Abgestimmt"
 
   # --- Aufgaben ---
+  /groups/{groupId}/tasks/consent:
+    put:
+      tags: [Aufgaben]
+      summary: "Zustimmung für Aufgabenzuweisung umschalten"
+      description: "Nur Mitglieder, die einverstanden sind, können Aufgaben erhalten."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consent_given]
+              properties:
+                consent_given:
+                  type: boolean
+      responses:
+        "200":
+          description: "Zustimmung aktualisiert"
+
   /groups/{groupId}/tasks:
     get:
       tags: [Aufgaben]
@@ -621,6 +932,58 @@ paths:
       responses:
         "201":
           description: "Erstellt"
+
+  /groups/{groupId}/tasks/{taskId}:
+    put:
+      tags: [Aufgaben]
+      summary: "Aufgabe bearbeiten"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                assignee_id:
+                  type: integer
+                deadline:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: "Aufgabe aktualisiert"
+    delete:
+      tags: [Aufgaben]
+      summary: "Aufgabe löschen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Aufgabe gelöscht"
 
   /groups/{groupId}/tasks/{taskId}/complete:
     put:
@@ -681,6 +1044,18 @@ paths:
           description: "Eingetragen"
 
   /groups/{groupId}/finances/payments:
+    get:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Alle Einzahlungen anzeigen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der getätigten Einzahlungen"
     post:
       tags: [Finanzverwaltung (Gruppe)]
       summary: "Geldsumme einzahlen / Überweisen"
@@ -750,6 +1125,20 @@ paths:
           description: "Rückzahlung initiiert"
 
   # --- Dienstleister & Anfragen ---
+  /providers/{providerId}/customers:
+    get:
+      tags: [Dienstleister & Anfragen]
+      summary: "Kunden des Dienstleisters einsehen"
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Kunden (Veranstalter)"
+
   /providers/{providerId}/requests:
     post:
       tags: [Dienstleister & Anfragen]
@@ -782,6 +1171,11 @@ paths:
                 budget_flexibility:
                   type: number
                   description: "Budget Spielraum in Prozent oder absolut"
+                other_organizers:
+                  type: array
+                  items:
+                    type: string
+                  description: "Andere beteiligte Veranstalter"
       responses:
         "201":
           description: "Anfrage gesendet"
@@ -802,6 +1196,20 @@ paths:
                 request_id:
                   type: integer
                 total_price:
+                  type: number
+                wage_costs:
+                  type: number
+                travel_costs:
+                  type: number
+                material_costs:
+                  type: number
+                admin_costs:
+                  type: number
+                gross_price:
+                  type: number
+                net_price:
+                  type: number
+                discount:
                   type: number
                 material_list:
                   type: array
@@ -875,6 +1283,16 @@ paths:
           in: query
           schema:
             type: string
+        - name: available_start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: available_end
+          in: query
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: "Materialliste"
@@ -898,11 +1316,66 @@ paths:
                 maintenance_cycle:
                   type: integer
                   description: "Wartungszyklus in Tagen"
+                storage_location:
+                  type: string
+                purchase_price:
+                  type: number
       responses:
         "201":
           description: "Hinzugefügt"
 
+  /materials/{materialId}:
+    put:
+      tags: [Materialverwaltung]
+      summary: "Material bearbeiten"
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                on_day_price:
+                  type: number
+                maintenance_cycle:
+                  type: integer
+                storage_location:
+                  type: string
+                purchase_price:
+                  type: number
+      responses:
+        "200":
+          description: "Material aktualisiert"
+    delete:
+      tags: [Materialverwaltung]
+      summary: "Material löschen"
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Material gelöscht"
+
   /materials/categories:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Material Kategorien anzeigen"
+      responses:
+        "200":
+          description: "Liste der Kategorien"
     post:
       tags: [Materialverwaltung]
       summary: "Material Kategorie hinzufügen"
@@ -919,18 +1392,42 @@ paths:
       responses:
         "201":
           description: "Erstellt"
+
+  /materials/categories/{categoryId}:
     delete:
       tags: [Materialverwaltung]
       summary: "Material Kategorie löschen"
       parameters:
-        - name: name
-          in: query
+        - name: categoryId
+          in: path
           required: true
           schema:
-            type: string
+            type: integer
       responses:
         "200":
           description: "Gelöscht (sofern leer)"
+    put:
+      tags: [Materialverwaltung]
+      summary: "Material Kategorie bearbeiten"
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: "Aktualisiert"
 
   /materials/{materialId}/book:
     post:
@@ -961,6 +1458,35 @@ paths:
         "200":
           description: "Gebucht"
 
+  /materials/{materialId}/history:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Verleih-Historie anzeigen"
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Historie (wann, wo, bei wem)"
+
+  /materials/{materialId}/amortization:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Amortisierung anzeigen / Fortschritt"
+      description: "Berechnet aus Einkaufspreis, Anzahl der Verleihungen und Preis."
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Status (amortisiert: true/false) und Prozent des Fortschritts"
+
   # --- Personalverwaltung ---
   /employees:
     get:
@@ -971,6 +1497,20 @@ paths:
           in: query
           schema:
             type: string
+        - name: driver_license
+          in: query
+          schema:
+            type: string
+        - name: available_start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: available_end
+          in: query
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: "Mitarbeiterliste"
@@ -996,6 +1536,47 @@ paths:
       responses:
         "201":
           description: "Hinzugefügt"
+
+  /employees/{employeeId}:
+    put:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter bearbeiten"
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                qualification:
+                  type: string
+                field:
+                  type: string
+                driver_license:
+                  type: string
+      responses:
+        "200":
+          description: "Aktualisiert"
+    delete:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter löschen"
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Gelöscht"
 
   /employees/{employeeId}/assign:
     post:
@@ -1067,6 +1648,20 @@ paths:
       responses:
         "201":
           description: "Rechnung erstellt und zugestellt"
+
+  /invoices/{invoiceId}:
+    get:
+      tags: [Rechnungsverwaltung]
+      summary: "Rechnungsdetails / PDF abrufen"
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Rechnungsdaten (Brutto, Netto, Materialliste)"
 
   /invoices/{invoiceId}/pay:
     put:
