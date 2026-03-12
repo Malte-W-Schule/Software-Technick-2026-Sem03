@@ -45,15 +45,27 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password, role]
+              required: [email, password, role, phone, first_name, last_name, username]
               properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                username:
+                  type: string
                 email:
                   type: string
                 password:
                   type: string
                 role:
                   type: string
-                  enum: [privat, institution, kommerziell]
+                  enum: [privat, institution, Firma, kommerziell]
+                subscription_plan:
+                  type: string
+                  enum: [free, premium]
+                payment_method:
+                  type: string
+                  description: "Zahlungsart, erforderlich wenn subscription_plan=premium"
                 phone:
                   type: string
                 preferred_communication:
@@ -141,6 +153,14 @@ paths:
             schema:
               type: object
               properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                username:
+                  type: string
+                email:
+                  type: string
                 language:
                   type: string
                 preferred_communication:
@@ -168,6 +188,33 @@ paths:
           schema:
             type: string
             enum: [date, is_public, participants, organizer]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [bezahlt, unbezahlt]
+          description: "Filter nach Bezahlstatus"
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [organizer, participant]
+          description: "Filter nach eigener Rolle im Event"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: radius
+          in: query
+          schema:
+            type: integer
+          description: "Suchradius in Kilometern"
       responses:
         "200":
           description: "Persönliche Eventliste"
@@ -190,6 +237,12 @@ paths:
       responses:
         "200":
           description: "Abo erfolgreich abgeschlossen"
+    delete:
+      tags: [Kundenverwaltung]
+      summary: "Premium Abo kündigen"
+      responses:
+        "200":
+          description: "Abo erfolgreich gekündigt"
 
   # --- Eventverwaltung ---
   /events:
@@ -414,6 +467,7 @@ paths:
     get:
       tags: [Gruppenverwaltung]
       summary: "Meine Gruppen anzeigen (sortierbar)"
+      description: "Gibt alle Gruppen zurück, denen der authentifizierte Benutzer angehört. Dient als Übersicht, um anschließend Details abzurufen."
       parameters:
         - name: sort_by
           in: query
@@ -445,6 +499,9 @@ paths:
                 min_contribution_per_member:
                   type: number
                   description: "Mindest-Geldbetrag eines Gruppenmitglieds"
+                bank_account_iban:
+                  type: string
+                  description: "Kontonummer des Gruppenleiters für Überweisungen"
       responses:
         "201":
           description: "Gruppe erstellt inkl. Beitritts-Code"
@@ -702,6 +759,12 @@ paths:
           schema:
             type: string
           description: "Zum Filtern der Notizen, z.B. nach 'Termin' oder 'Allgemein'"
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [date, name]
+          description: "Sortieren nach Datum oder Name"
       responses:
         "200":
           description: "Liste von Notizen (farblich markiert je nach Typ)"
@@ -732,6 +795,15 @@ paths:
                 date:
                   type: string
                   format: date-time
+                location:
+                  type: string
+                  description: "Ort des Termins"
+                cost:
+                  type: number
+                  description: "Kosten für den Termin"
+                sync_to_calendar:
+                  type: boolean
+                  description: "Termin in gekoppelten Kalender eintragen"
                 transport_info:
                   type: string
                   description: "Zusatzinformationen bei Terminen (z.B. Gleis, Zugnummer)"
@@ -929,6 +1001,14 @@ paths:
                 deadline:
                   type: string
                   format: date-time
+                start_time:
+                  type: string
+                  format: date-time
+                  description: "Startzeit für Zeitpläne"
+                end_time:
+                  type: string
+                  format: date-time
+                  description: "Endzeit für Zeitpläne"
       responses:
         "201":
           description: "Erstellt"
@@ -964,6 +1044,14 @@ paths:
                 deadline:
                   type: string
                   format: date-time
+                start_time:
+                  type: string
+                  format: date-time
+                  description: "Startzeit für Zeitpläne"
+                end_time:
+                  type: string
+                  format: date-time
+                  description: "Endzeit für Zeitpläne"
       responses:
         "200":
           description: "Aufgabe aktualisiert"
@@ -1033,12 +1121,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [description, amount]
+              required: [description, amount, payer_id]
               properties:
                 description:
                   type: string
+                item_name:
+                  type: string
+                  description: "Was genau bezahlt/mitgebracht wurde"
                 amount:
                   type: number
+                payer_id:
+                  type: integer
       responses:
         "201":
           description: "Eingetragen"
@@ -1197,6 +1290,9 @@ paths:
                   type: integer
                 total_price:
                   type: number
+                max_budget:
+                  type: number
+                  description: "Maximalbudget des Events"
                 wage_costs:
                   type: number
                 travel_costs:
@@ -1316,6 +1412,9 @@ paths:
                 maintenance_cycle:
                   type: integer
                   description: "Wartungszyklus in Tagen"
+                maintenance_reminder_days:
+                  type: integer
+                  description: "Tage vor Wartung für Erinnerung"
                 storage_location:
                   type: string
                 purchase_price:
@@ -1349,6 +1448,9 @@ paths:
                   type: number
                 maintenance_cycle:
                   type: integer
+                maintenance_reminder_days:
+                  type: integer
+                  description: "Tage vor Wartung für Erinnerung"
                 storage_location:
                   type: string
                 purchase_price:
