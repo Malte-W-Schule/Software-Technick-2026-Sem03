@@ -4,16 +4,16 @@ Nutze diese Tabelle, um zu tracken, welche Use Cases und Endpunkte du bereits ü
 
 | Geprüft | Kategorie (Tag) | Methode | Pfad | Beschreibung |
 |:---:|---|---|---|---|
-| [ ] | KundenPverwaltung | **POST** | `/auth/register` | Konto erstellen |
-| [ ] | Kundenverwaltung | **POST** | `/auth/login` | Anmelden |
-| [ ] | Kundenverwaltung | **POST** | `/auth/forgot-password` | Passwort zurücksetzen (E-Mail anfordern) |
-| [ ] | Kundenverwaltung | **POST** | `/auth/reset-password` | Neues Passwort setzen |
-| [ ] | Kundenverwaltung | **GET** | `/users/me` | Eigenes Profil abrufen |
-| [ ] | Kundenverwaltung | **PUT** | `/users/me` | Profildaten & Präferenzen aktualisieren |
-| [ ] | Kundenverwaltung | **DELETE** | `/users/me` | Konto löschen |
-| [ ] | Kundenverwaltung | **GET** | `/users/me/events` | Meine Eventliste anzeigen (Teilnehmer/Organisator/Interessiert) |
-| [ ] | Kundenverwaltung | **POST** | `/users/me/subscription` | Premium Abo abschließen / Zahlungsart angeben |
-| [ ] | Kundenverwaltung | **DELETE** | `/users/me/subscription` | Premium Abo kündigen |
+| [x] | KundenPverwaltung | **POST** | `/auth/register` | Konto erstellen |
+| [x] | Kundenverwaltung | **POST** | `/auth/login` | Anmelden |
+| [x] | Kundenverwaltung | **POST** | `/auth/forgot-password` | Passwort zurücksetzen (E-Mail anfordern) |
+| [x] | Kundenverwaltung | **POST** | `/auth/reset-password` | Neues Passwort setzen |
+| [x] | Kundenverwaltung | **GET** | `/users/me` | Eigenes Profil abrufen |
+| [x] | Kundenverwaltung | **PUT** | `/users/me` | Profildaten & Präferenzen aktualisieren |
+| [x] | Kundenverwaltung | **DELETE** | `/users/me` | Konto löschen |
+| [x] | Kundenverwaltung | **GET** | `/users/me/events` | Meine Eventliste anzeigen (Teilnehmer/Organisator/Interessiert) |
+| [x] | Kundenverwaltung | **POST** | `/users/me/subscription` | Premium Abo abschließen / Zahlungsart angeben |
+| [x] | Kundenverwaltung | **DELETE** | `/users/me/subscription` | Premium Abo kündigen |
 | [ ] | Eventverwaltung | **GET** | `/events` | Events suchen und filtern |
 | [ ] | Eventverwaltung | **POST** | `/events` | Event erstellen |
 | [ ] | Eventverwaltung | **GET** | `/events/{eventId}` | Details eines Events / Event Homepage |
@@ -25,9 +25,9 @@ Nutze diese Tabelle, um zu tracken, welche Use Cases und Endpunkte du bereits ü
 | [ ] | Eventverwaltung | **GET** | `/events/{eventId}/resources` | Gesamtübersicht gebuchter Ressourcen (Personal & Material) |
 | [ ] | Eventverwaltung | **POST** | `/events/{eventId}/ticket-types` | Ticket-Typ erstellen (Veranstalter) |
 | [ ] | Eventverwaltung | **POST** | `/events/{eventId}/tickets` | Ticket kaufen (Ticketing Integration) |
-| [ ] | Gruppenverwaltung | **GET** | `/groups` | Meine Gruppen anzeigen (sortierbar) |
-| [ ] | Gruppenverwaltung | **POST** | `/groups` | Neue Gruppe erstellen |
-| [ ] | Gruppenverwaltung | **GET** | `/groups/{groupId}` | Gruppendetails |
+| [x] | Gruppenverwaltung | **GET** | `/groups` | Meine Gruppen anzeigen (sortierbar) |
+| [x] | Gruppenverwaltung | **POST** | `/groups` | Neue Gruppe erstellen |
+| [x] | Gruppenverwaltung | **GET** | `/groups/{groupId}` | Gruppendetails |
 | [ ] | Gruppenverwaltung | **PUT** | `/groups/{groupId}` | Gruppe verwalten (Admin) |
 | [ ] | Gruppenverwaltung | **DELETE** | `/groups/{groupId}` | Gruppe löschen |
 | [ ] | Gruppenverwaltung | **POST** | `/groups/join` | Gruppe per Beitritts-Code beitreten |
