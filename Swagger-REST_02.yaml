@@ -60,6 +60,18 @@ paths:
                 role:
                   type: string
                   enum: [privat, institution, Firma, kommerziell]
+                company_name:
+                  type: string
+                  description: "Name der Institution oder Firma (erforderlich für kommerzielle Anbieter und Institutionen)"
+                zip_code:
+                  type: string
+                  description: "Postleitzahl (erforderlich für kommerzielle Anbieter und Institutionen)"
+                city:
+                  type: string
+                  description: "Ort (erforderlich für kommerzielle Anbieter und Institutionen)"
+                street_and_number:
+                  type: string
+                  description: "Straße und Hausnummer (erforderlich für kommerzielle Anbieter und Institutionen)"
                 subscription_plan:
                   type: string
                   enum: [free, premium]
@@ -71,6 +83,13 @@ paths:
                 preferred_communication:
                   type: string
                   enum: [email, sms, whatsapp]
+                two_factor_enabled:
+                  type: boolean
+                  description: "Zwei-Faktor-Authentifizierung aktivieren"
+                two_factor_method:
+                  type: string
+                  enum: [app, sms, email]
+                  description: "Gewünschte 2FA-Methode (erforderlich, wenn two_factor_enabled=true)"
                 privacy_policy_accepted:
                   type: boolean
                   description: "Zustimmung zu den Datenschutzrichtlinien erforderlich"
@@ -161,11 +180,26 @@ paths:
                   type: string
                 email:
                   type: string
+                phone:
+                  type: string
+                company_name:
+                  type: string
+                zip_code:
+                  type: string
+                city:
+                  type: string
+                street_and_number:
+                  type: string
                 language:
                   type: string
                 preferred_communication:
                   type: string
                   enum: [email, sms, whatsapp]
+                two_factor_enabled:
+                  type: boolean
+                two_factor_method:
+                  type: string
+                  enum: [app, sms, email]
       responses:
         "200":
           description: "Aktualisiert"
@@ -487,21 +521,25 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
+              required: [group_name, creator_id]
               properties:
-                name:
+                group_name:
                   type: string
                 description:
                   type: string
+                creator_id:
+                  type: integer
+                  description: "ID des Gruppenleiters/Erstellers"
+                created_at:
+                  type: string
+                  format: date-time
+                  description: "Zeitpunkt der Erstellung"
                 valid_until:
                   type: string
                   format: date-time
                 min_contribution_per_member:
                   type: number
                   description: "Mindest-Geldbetrag eines Gruppenmitglieds"
-                bank_account_iban:
-                  type: string
-                  description: "Kontonummer des Gruppenleiters für Überweisungen"
       responses:
         "201":
           description: "Gruppe erstellt inkl. Beitritts-Code"
@@ -535,7 +573,7 @@ paths:
             schema:
               type: object
               properties:
-                name:
+                group_name:
                   type: string
                 description:
                   type: string
