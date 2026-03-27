@@ -45,7 +45,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password, role, phone, first_name, last_name, username]
+              required:
+                [email, password, role, phone, first_name, last_name, username]
               properties:
                 first_name:
                   type: string
@@ -1304,8 +1305,6 @@ paths:
       responses:
         "204":
           description: "Aufgabe gelöscht"
-
-
 
   # --- Finanzverwaltung (Gruppe) ---
   /groups/{groupId}/finances/expenses:
