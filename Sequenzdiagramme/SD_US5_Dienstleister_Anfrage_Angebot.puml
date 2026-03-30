@@ -1,0 +1,87 @@
+@startuml SD_US5_Dienstleister_Anfrage_Angebot
+title US5 – Dienstleister-Anfrage, Angebot & Event-Konvertierung
+
+actor "Veranstalter" as Org
+actor "Dienstleister" as Provider
+participant "Client\n(Web/App)" as Client
+participant "API Gateway" as API
+participant "Dienstleister-\nService" as ProvSvc
+participant "Event-Service" as EventSvc
+database "Datenbank" as DB
+participant "Benachrichtigungs-\nService" as Notif
+
+== Anfrage senden ==
+
+Org -> Client : Dienstleister suchen & Anfrage erstellen\n(Leistungsart, Start/Ende, Ort, Budget,\nBudget-Spielraum, weitere Veranstalter)
+Client -> API : POST /events/{eventId}/provider-requests\n{provider_id, service_type, date_start,\ndate_end, location, budget,\nbudget_flexibility, description}
+API -> API : JWT-Token prüfen
+API -> ProvSvc : Anfrage weiterleiten
+ProvSvc -> DB : Anfrage speichern\n(status: "offen")
+DB --> ProvSvc : requestId
+ProvSvc -> Notif : Dienstleister benachrichtigen
+Notif --> Provider : E-Mail / Push: "Neue Anfrage eingegangen"
+ProvSvc --> API : 201 Created\n{requestId}
+API --> Client : Anfrage versendet
+Client --> Org : Bestätigung anzeigen
+
+== Angebot erstellen ==
+
+Provider -> Client : Anfrage-Details ansehen
+Client -> API : GET /provider-requests/{requestId}
+API --> Client : Anfragedetails
+Client --> Provider : Anfrage anzeigen
+
+Provider -> Client : Angebot erstellen\n(Preis brutto/netto/Rabatt,\nMitarbeiter, Lohnkosten, Materialkosten,\nFahrtkosten, Verwaltungskosten,\nDatum, Dauer, Ort, Materialliste)
+Client -> API : POST /provider-requests/{requestId}/offers\n{price_gross, price_net, discount,\nstaff, labor_costs, material_costs,\ntravel_costs, admin_costs,\nvalid_until, notes, material_list}
+API -> ProvSvc : Angebot weiterleiten
+ProvSvc -> DB : Angebot speichern\n(status: "ausstehend")
+DB --> ProvSvc : offerId
+ProvSvc -> Notif : Veranstalter benachrichtigen
+Notif --> Org : E-Mail / Push: "Angebot eingegangen"
+ProvSvc --> API : 201 Created\n{offerId}
+API --> Client : Angebot erstellt
+Client --> Provider : Bestätigung
+
+== Angebot annehmen / ablehnen ==
+
+Org -> Client : Angebote prüfen & vergleichen
+Client -> API : GET /provider-requests/{requestId}/offers
+API --> Client : Angebotsliste
+Client --> Org : Angebote vergleichen
+
+alt Angebot annehmen
+    Org -> Client : "Annehmen" klicken
+    Client -> API : PUT /offers/{offerId}\n{status: "angenommen"}
+    API -> ProvSvc : Status aktualisieren
+    ProvSvc -> DB : Angebot als "angenommen" speichern
+    DB --> ProvSvc : OK
+    ProvSvc -> Notif : Dienstleister informieren\n("Angebot angenommen")
+    Notif --> Provider : E-Mail mit Auftragsbestätigung
+    ProvSvc --> API : 200 OK
+    API --> Client : Angebot angenommen
+    Client --> Org : Dienstleister gebucht ✔
+
+    == Anfrage zu Event konvertieren ==
+
+    Org -> Client : "Zu Event konvertieren" klicken
+    Client -> API : POST /provider-requests/{requestId}/convert-to-event\n{event_name, date_start, date_end,\nlocation, budget}
+    API -> EventSvc : Event aus Anfrage generieren
+    EventSvc -> DB : Event anlegen\n(mit Daten aus der Anfrage)
+    DB --> EventSvc : eventId
+    EventSvc -> EventSvc : Event-URL & QR-Code generieren
+    EventSvc --> API : 201 Created\n{eventId, event_url, qr_code_url}
+    API --> Client : Event erfolgreich erstellt
+    Client --> Org : Event-Dashboard öffnen
+
+else Angebot ablehnen
+    Org -> Client : "Ablehnen" klicken
+    Client -> API : PUT /offers/{offerId}\n{status: "abgelehnt"}
+    API -> ProvSvc : Status aktualisieren
+    ProvSvc -> DB : Angebot als "abgelehnt" speichern
+    ProvSvc -> Notif : Dienstleister informieren\n("Angebot abgelehnt")
+    Notif --> Provider : E-Mail mit Absage
+    ProvSvc --> API : 200 OK
+    API --> Client : Ablehnung bestätigt
+end
+
+@enduml

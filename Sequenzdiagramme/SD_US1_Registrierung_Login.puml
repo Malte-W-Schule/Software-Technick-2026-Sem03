@@ -1,0 +1,88 @@
+@startuml SD_US1_Registrierung_Login
+title US1 – Registrierung, Login (mit 2FA) & Passwort zurücksetzen
+
+actor "Nutzer" as User
+participant "Client\n(Web/App)" as Client
+participant "API Gateway" as API
+participant "Auth-Service" as Auth
+database "Datenbank" as DB
+participant "2FA-/E-Mail-\nService" as TFA
+
+== Registrierung ==
+
+User -> Client : Formular ausfüllen\n(Vorname, Nachname, Benutzername, E-Mail,\nPasswort (2x), Telefon, Rolle, Abo,\nbevorzugte Datenkommunikation)
+
+note over Client : Datenschutzrichtlinien\nmüssen bestätigt werden
+
+User -> Client : Datenschutzrichtlinien akzeptieren\n(privacy_policy_accepted = true)
+
+Client -> API : POST /auth/register\n{first_name, last_name, username, email,\npassword, role, phone,\npreferred_communication,\nprivacy_policy_accepted, ...}
+
+opt Rolle = kommerziell / Institution
+    note over Client : Zusätzlich erforderlich:\ncompany_name, zip_code,\ncity, street_and_number
+end
+
+opt subscription_plan = premium
+    note over Client : Zahlungsart erforderlich:\npayment_method (paypal / credit_card / sepa)
+end
+
+API -> Auth : Registrierungsanfrage weiterleiten
+Auth -> Auth : Passwort hashen + salten
+Auth -> DB : Nutzer speichern
+DB --> Auth : Nutzer-ID
+Auth -> TFA : Bestätigungs-E-Mail senden
+TFA --> User : E-Mail mit Bestätigungslink
+Auth --> API : 201 Created
+API --> Client : Konto erfolgreich erstellt
+Client --> User : Erfolgsmeldung + Hinweis auf starkes Passwort & 2FA
+
+== Login ==
+
+User -> Client : Benutzername oder E-Mail & Passwort eingeben
+Client -> API : POST /auth/login\n{email_or_username, password}
+API -> Auth : Login-Anfrage weiterleiten
+Auth -> DB : Nutzer & Passwort prüfen
+DB --> Auth : Nutzerdaten
+
+alt 2FA aktiviert
+    Auth -> TFA : 2FA-Code generieren & senden\n(SMS / E-Mail / App)
+    TFA --> User : Einmalcode
+    Auth --> API : 200 OK – 2FA erforderlich
+    API --> Client : 2FA-Eingabe anfordern
+    User -> Client : Einmalcode eingeben
+    Client -> API : POST /auth/verify-2fa\n{code}
+    API -> Auth : Code prüfen
+    Auth -> Auth : Code validieren
+end
+
+Auth -> Auth : JWT-Token generieren
+Auth --> API : JWT-Token
+API --> Client : 200 OK {token}
+Client -> Client : Token speichern (localStorage)
+Client --> User : Eingeloggt – Dashboard anzeigen
+
+== Passwort zurücksetzen ==
+
+User -> Client : "Passwort vergessen" klicken
+Client -> API : POST /auth/forgot-password\n{email}
+API -> Auth : Reset-Link anfordern
+Auth -> DB : Nutzer anhand E-Mail suchen
+DB --> Auth : Nutzer vorhanden
+Auth -> TFA : Reset-Link per E-Mail senden
+TFA --> User : E-Mail mit Reset-Link (Token)
+Auth --> API : 200 OK
+API --> Client : "E-Mail wurde gesendet"
+Client --> User : Hinweismeldung anzeigen
+
+User -> Client : Neues Passwort eingeben\n(über Link in E-Mail)
+Client -> API : POST /auth/reset-password\n{token, new_password}
+API -> Auth : Token & neues Passwort prüfen
+Auth -> Auth : Token validieren (Gültigkeit)
+Auth -> Auth : Passwort hashen
+Auth -> DB : Neues Passwort speichern
+DB --> Auth : OK
+Auth --> API : 200 OK
+API --> Client : Passwort erfolgreich zurückgesetzt
+Client --> User : Weiterleitung zum Login
+
+@enduml

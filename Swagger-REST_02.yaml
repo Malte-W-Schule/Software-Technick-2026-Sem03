@@ -45,20 +45,55 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password, role]
+              required:
+                [email, password, role, phone, first_name, last_name, username]
               properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                username:
+                  type: string
                 email:
                   type: string
                 password:
                   type: string
                 role:
                   type: string
-                  enum: [privat, institution, kommerziell]
+                  enum: [privat, institution, Firma, kommerziell]
+                company_name:
+                  type: string
+                  description: "Name der Institution oder Firma (erforderlich für kommerzielle Anbieter und Institutionen)"
+                zip_code:
+                  type: string
+                  description: "Postleitzahl (erforderlich für kommerzielle Anbieter und Institutionen)"
+                city:
+                  type: string
+                  description: "Ort (erforderlich für kommerzielle Anbieter und Institutionen)"
+                street_and_number:
+                  type: string
+                  description: "Straße und Hausnummer (erforderlich für kommerzielle Anbieter und Institutionen)"
+                subscription_plan:
+                  type: string
+                  enum: [free, premium]
+                payment_method:
+                  type: string
+                  description: "Zahlungsart, erforderlich wenn subscription_plan=premium"
                 phone:
                   type: string
                 preferred_communication:
                   type: string
                   enum: [email, sms, whatsapp]
+                two_factor_enabled:
+                  type: boolean
+                  description: "Zwei-Faktor-Authentifizierung aktivieren"
+                two_factor_method:
+                  type: string
+                  enum: [app, sms, email]
+                  description: "Gewünschte 2FA-Methode (erforderlich, wenn two_factor_enabled=true)"
+                privacy_policy_accepted:
+                  type: boolean
+                  description: "Zustimmung zu den Datenschutzrichtlinien erforderlich"
       responses:
         "201":
           description: "Konto erfolgreich erstellt"
@@ -83,6 +118,44 @@ paths:
         "200":
           description: "Erfolgreicher Login, JWT Token zurückgegeben"
 
+  /auth/forgot-password:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Passwort zurücksetzen (E-Mail anfordern)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+      responses:
+        "200":
+          description: "E-Mail mit Reset-Link gesendet"
+
+  /auth/reset-password:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Neues Passwort setzen"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        "200":
+          description: "Passwort erfolgreich zurückgesetzt"
+
   /users/me:
     get:
       tags: [Kundenverwaltung]
@@ -100,11 +173,34 @@ paths:
             schema:
               type: object
               properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                username:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                company_name:
+                  type: string
+                zip_code:
+                  type: string
+                city:
+                  type: string
+                street_and_number:
+                  type: string
                 language:
                   type: string
                 preferred_communication:
                   type: string
                   enum: [email, sms, whatsapp]
+                two_factor_enabled:
+                  type: boolean
+                two_factor_method:
+                  type: string
+                  enum: [app, sms, email]
       responses:
         "200":
           description: "Aktualisiert"
@@ -115,6 +211,73 @@ paths:
       responses:
         "204":
           description: "Gelöscht"
+
+  /users/me/events:
+    get:
+      tags: [Kundenverwaltung]
+      summary: "Meine Eventliste anzeigen (Teilnehmer/Organisator/Interessiert)"
+      description: "Liste der Events, nach Merkmalen sortier- und filterbar."
+      parameters:
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [date, is_public, participants, organizer]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [bezahlt, unbezahlt]
+          description: "Filter nach Bezahlstatus"
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [organizer, participant]
+          description: "Filter nach eigener Rolle im Event"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: radius
+          in: query
+          schema:
+            type: integer
+          description: "Suchradius in Kilometern"
+      responses:
+        "200":
+          description: "Persönliche Eventliste"
+
+  /users/me/subscription:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Premium Abo abschließen / Zahlungsart angeben"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method]
+              properties:
+                payment_method:
+                  type: string
+                  enum: [paypal, credit_card, sepa]
+      responses:
+        "200":
+          description: "Abo erfolgreich abgeschlossen"
+    delete:
+      tags: [Kundenverwaltung]
+      summary: "Premium Abo kündigen"
+      responses:
+        "200":
+          description: "Abo erfolgreich gekündigt"
 
   # --- Eventverwaltung ---
   /events:
@@ -144,17 +307,73 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, start_date, location]
               properties:
-                name:
+                username:
                   type: string
-                start_date:
+                  description: "Benutzername"
+                created_at:
                   type: string
                   format: date-time
-                location:
+                  description: "Erstelldatum"
+                event_name:
                   type: string
-                is_public:
+                  description: "Eventname"
+                time_period:
+                  type: string
+                  description: "Zeitraum"
+                zip_code:
+                  type: string
+                  description: "Postleitzahl"
+                city:
+                  type: string
+                  description: "Ort"
+                street_and_number:
+                  type: string
+                  description: "Straße und Hausnummer"
+                location_name:
+                  type: string
+                  description: "Locationname"
+                create_with_time_period:
                   type: boolean
+                  description: "Mit Zeitraum erstellen"
+                selectable_days:
+                  type: array
+                  items:
+                    type: string
+                    format: date
+                  description: "Zeitraum (Tage auswählbar)"
+                delete_after_expiration:
+                  type: boolean
+                  description: "Gibt an, ob die Gruppe nach Ablauf gelöscht (true) oder archiviert (false) werden soll"
+                add_groups:
+                  type: array
+                  items:
+                    type: integer
+                  description: "Gruppen hinzufügen (IDs)"
+                min_budget:
+                  type: number
+                  description: "Mindestgeldbetrag event"
+                participant_fee:
+                  type: number
+                  description: "Betrag für Teilnehmer"
+                notes:
+                  type: string
+                  description: "Anmerkungen"
+                bank_institution:
+                  type: string
+                  description: "Bankinstitut"
+                iban:
+                  type: string
+                  description: "IBAN"
+                account_number:
+                  type: string
+                  description: "Kontonummer"
+                bic:
+                  type: string
+                  description: "BIC"
+                description:
+                  type: string
+                  description: "Beschreibung"
       responses:
         "201":
           description: "Event erstellt"
@@ -188,10 +407,72 @@ paths:
             schema:
               type: object
               properties:
-                name:
+                username:
                   type: string
-                location:
+                  description: "Benutzername"
+                created_at:
                   type: string
+                  format: date-time
+                  description: "Erstelldatum"
+                event_name:
+                  type: string
+                  description: "Eventname"
+                time_period:
+                  type: string
+                  description: "Zeitraum"
+                zip_code:
+                  type: string
+                  description: "Postleitzahl"
+                city:
+                  type: string
+                  description: "Ort"
+                street_and_number:
+                  type: string
+                  description: "Straße und Hausnummer"
+                location_name:
+                  type: string
+                  description: "Locationname"
+                create_with_time_period:
+                  type: boolean
+                  description: "Mit Zeitraum erstellen"
+                selectable_days:
+                  type: array
+                  items:
+                    type: string
+                    format: date
+                  description: "Zeitraum (Tage auswählbar)"
+                delete_after_expiration:
+                  type: boolean
+                  description: "Gibt an, ob die Gruppe nach Ablauf gelöscht (true) oder archiviert (false) werden soll"
+                add_groups:
+                  type: array
+                  items:
+                    type: integer
+                  description: "Gruppen hinzufügen (IDs)"
+                min_budget:
+                  type: number
+                  description: "Mindestgeldbetrag event"
+                participant_fee:
+                  type: number
+                  description: "Betrag für Teilnehmer"
+                notes:
+                  type: string
+                  description: "Anmerkungen"
+                bank_institution:
+                  type: string
+                  description: "Bankinstitut"
+                iban:
+                  type: string
+                  description: "IBAN"
+                account_number:
+                  type: string
+                  description: "Kontonummer"
+                bic:
+                  type: string
+                  description: "BIC"
+                description:
+                  type: string
+                  description: "Beschreibung"
       responses:
         "200":
           description: "Aktualisiert"
@@ -208,7 +489,110 @@ paths:
         "204":
           description: "Gelöscht/Archiviert"
 
-  /events/{eventId}/tickets: #todo übergucken
+  /events/{eventId}/interested:
+    post:
+      tags: [Eventverwaltung]
+      summary: "Event zur eigenen Beobachtungsliste hinzufügen"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Zur Liste hinzugefügt"
+
+  /events/{eventId}/comments:
+    get:
+      tags: [Eventverwaltung]
+      summary: "Event kommentieren und bewerten (Medien abrufen)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste an Videos, Bildern und Kommentaren"
+    post:
+      tags: [Eventverwaltung]
+      summary: "Kommentare, Videos und Bilder für ein Event hochladen"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+                  description: "Optionales Bild oder Video"
+      responses:
+        "201":
+          description: "Medium/Kommentar hochgeladen"
+
+  /events/{eventId}/resources:
+    get:
+      tags: [Eventverwaltung]
+      summary: "Gesamtübersicht gebuchter Ressourcen (Personal & Material)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste aller zugewiesenen Mitarbeiter & gebuchten Materialien"
+
+  /events/{eventId}/ticket-types:
+    post:
+      tags: [Eventverwaltung]
+      summary: "Ticket-Typ erstellen (Veranstalter)"
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                service_provider:
+                  type: string
+                  description: "Dienstleister"
+                event_id:
+                  type: integer
+                  description: "Event ID"
+                price:
+                  type: number
+                  description: "Preis"
+                quantity:
+                  type: integer
+                  description: "Anzahl"
+                category:
+                  type: string
+                  description: "Kategorie (damit man mehrere Arten von Tickets definieren kann)"
+      responses:
+        "201":
+          description: "Ticket-Typ erstellt"
+
+  /events/{eventId}/tickets:
     post:
       tags: [Eventverwaltung]
       summary: "Ticket kaufen (Ticketing Integration)"
@@ -225,10 +609,21 @@ paths:
             schema:
               type: object
               properties:
-                ticket_type:
+                service_provider:
                   type: string
+                  description: "Dienstleister"
+                event_id:
+                  type: integer
+                  description: "Event ID"
+                price:
+                  type: number
+                  description: "Preis"
                 quantity:
                   type: integer
+                  description: "Anzahl"
+                category:
+                  type: string
+                  description: "Kategorie (Tickets)"
       responses:
         "201":
           description: "Ticket generiert (PDF/QR Code)"
@@ -238,6 +633,13 @@ paths:
     get:
       tags: [Gruppenverwaltung]
       summary: "Meine Gruppen anzeigen (sortierbar)"
+      description: "Gibt alle Gruppen zurück, denen der authentifizierte Benutzer angehört. Dient als Übersicht, um anschließend Details abzurufen."
+      parameters:
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [name, created_at, role]
       responses:
         "200":
           description: "Liste der Gruppen"
@@ -251,15 +653,35 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
               properties:
-                name:
+                group_leader:
+                  type: integer
+                  description: "ID des Gruppenleiters"
+                group_name:
                   type: string
-                description:
-                  type: string
-                valid_until:
+                  description: "Gruppenname"
+                create_with_time_period:
+                  type: boolean
+                  description: "Mit Zeitraum erstellen"
+                selectable_time_period:
+                  type: array
+                  items:
+                    type: string
+                    format: date
+                  description: "Zeitraum (auswählbar)"
+                delete_after_expiration:
+                  type: boolean
+                  description: "Gibt an, ob Gruppe nach Ablauf gelöscht (true) oder archiviert (false) werden soll"
+                created_at:
                   type: string
                   format: date-time
+                  description: "Erstelldatum"
+                description:
+                  type: string
+                  description: "Beschreibung"
+                members_read_only:
+                  type: boolean
+                  description: "Alle Gruppenmitglieder haben nur lesenden Zugriff"
       responses:
         "201":
           description: "Gruppe erstellt inkl. Beitritts-Code"
@@ -293,10 +715,34 @@ paths:
             schema:
               type: object
               properties:
-                name:
+                group_leader:
+                  type: integer
+                  description: "ID des Gruppenleiters"
+                group_name:
                   type: string
+                  description: "Gruppenname"
+                create_with_time_period:
+                  type: boolean
+                  description: "Mit Zeitraum erstellen"
+                selectable_time_period:
+                  type: array
+                  items:
+                    type: string
+                    format: date
+                  description: "Zeitraum (auswählbar)"
+                delete_after_expiration:
+                  type: boolean
+                  description: "Gibt an, ob Gruppe nach Ablauf gelöscht (true) oder archiviert (false) werden soll"
+                created_at:
+                  type: string
+                  format: date-time
+                  description: "Erstelldatum"
                 description:
                   type: string
+                  description: "Beschreibung"
+                members_read_only:
+                  type: boolean
+                  description: "Alle Gruppenmitglieder haben nur lesenden Zugriff"
       responses:
         "200":
           description: "Gespeichert"
@@ -373,6 +819,39 @@ paths:
         "200":
           description: "Liste der Mitglieder inkl. Rollen"
 
+  /groups/{groupId}/members/{userId}/role:
+    put:
+      tags: [Gruppenverwaltung]
+      summary: "Rolle/Rechte zuweisen (Admin)"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id:
+                  type: integer
+                  description: "ID der Person (Benutzer)"
+                role:
+                  type: string
+                  enum: [admin, read_only, member]
+      responses:
+        "200":
+          description: "Rolle aktualisiert"
+
   /groups/{groupId}/members/{userId}:
     delete:
       tags: [Gruppenverwaltung]
@@ -410,8 +889,75 @@ paths:
       responses:
         "200":
           description: "Liste potenzieller Matches"
+    put:
+      tags: [Gruppenverwaltung]
+      summary: "Eigenen Matchmaking-Status setzen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_searching]
+              properties:
+                is_searching:
+                  type: boolean
+                  description: "Als 'Suche noch Personen' markieren."
+      responses:
+        "200":
+          description: "Status aktualisiert"
 
   # --- Notizen & Kommunikation ---
+  /groups/{groupId}/messages:
+    get:
+      tags: [Notizen & Kommunikation]
+      summary: "Chat-Nachrichten abrufen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Chat-Nachrichten"
+    post:
+      tags: [Notizen & Kommunikation]
+      summary: "Nachricht senden"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, content, author]
+              properties:
+                date:
+                  type: string
+                  format: date-time
+                  description: "Datum und Uhrzeit"
+                content:
+                  type: string
+                  description: "Inhalt der Nachricht"
+                author:
+                  type: integer
+                  description: "Verfasser (ID)"
+      responses:
+        "201":
+          description: "Nachricht gesendet"
+
   /groups/{groupId}/notes:
     get:
       tags: [Notizen & Kommunikation]
@@ -428,6 +974,12 @@ paths:
           schema:
             type: string
           description: "Zum Filtern der Notizen, z.B. nach 'Termin' oder 'Allgemein'"
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [date, name]
+          description: "Sortieren nach Datum oder Name"
       responses:
         "200":
           description: "Liste von Notizen (farblich markiert je nach Typ)"
@@ -458,6 +1010,15 @@ paths:
                 date:
                   type: string
                   format: date-time
+                location:
+                  type: string
+                  description: "Ort des Termins"
+                cost:
+                  type: number
+                  description: "Kosten für den Termin"
+                sync_to_calendar:
+                  type: boolean
+                  description: "Termin in gekoppelten Kalender eintragen"
                 transport_info:
                   type: string
                   description: "Zusatzinformationen bei Terminen (z.B. Gleis, Zugnummer)"
@@ -515,6 +1076,18 @@ paths:
 
   # --- Umfragen ---
   /groups/{groupId}/polls:
+    get:
+      tags: [Umfragen]
+      summary: "Umfragen abrufen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste an Umfragen und Ergebnissen"
     post:
       tags: [Umfragen]
       summary: "Umfrage erstellen"
@@ -578,6 +1151,31 @@ paths:
           description: "Abgestimmt"
 
   # --- Aufgaben ---
+  /groups/{groupId}/tasks/consent:
+    put:
+      tags: [Aufgaben]
+      summary: "Zustimmung für Aufgabenzuweisung umschalten"
+      description: "Nur Mitglieder, die einverstanden sind, können Aufgaben erhalten."
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consent_given]
+              properties:
+                consent_given:
+                  type: boolean
+      responses:
+        "200":
+          description: "Zustimmung aktualisiert"
+
   /groups/{groupId}/tasks:
     get:
       tags: [Aufgaben]
@@ -618,14 +1216,81 @@ paths:
                 deadline:
                   type: string
                   format: date-time
+                start_time:
+                  type: string
+                  format: date-time
+                  description: "Startzeit für Zeitpläne"
+                end_time:
+                  type: string
+                  format: date-time
+                  description: "Endzeit für Zeitpläne"
+                is_done:
+                  type: boolean
+                  description: "Erledigt"
+                is_important:
+                  type: boolean
+                  description: "Wichtig"
+                is_accepted:
+                  type: boolean
+                  description: "Von jemandem angenommen"
       responses:
         "201":
           description: "Erstellt"
 
-  /groups/{groupId}/tasks/{taskId}/complete:
+  /groups/{groupId}/tasks/{taskId}:
     put:
       tags: [Aufgaben]
-      summary: "Aufgabe als fertig markieren"
+      summary: "Aufgabe bearbeiten"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                assignee_id:
+                  type: integer
+                deadline:
+                  type: string
+                  format: date-time
+                start_time:
+                  type: string
+                  format: date-time
+                  description: "Startzeit für Zeitpläne"
+                end_time:
+                  type: string
+                  format: date-time
+                  description: "Endzeit für Zeitpläne"
+                is_done:
+                  type: boolean
+                  description: "Erledigt"
+                is_important:
+                  type: boolean
+                  description: "Wichtig"
+                is_accepted:
+                  type: boolean
+                  description: "Von jemandem angenommen"
+      responses:
+        "200":
+          description: "Aufgabe aktualisiert"
+    delete:
+      tags: [Aufgaben]
+      summary: "Aufgabe löschen"
       parameters:
         - name: groupId
           in: path
@@ -638,8 +1303,8 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: "Erledigt"
+        "204":
+          description: "Aufgabe gelöscht"
 
   /groups/{groupId}/tasks/{taskId}:
     delete:
@@ -690,17 +1355,34 @@ paths:
           application/json:
             schema:
               type: object
-              required: [description, amount]
+              required: [description, amount, payer_id]
               properties:
                 description:
                   type: string
+                item_name:
+                  type: string
+                  description: "Was genau bezahlt/mitgebracht wurde"
                 amount:
                   type: number
+                payer_id:
+                  type: integer
       responses:
         "201":
           description: "Eingetragen"
 
   /groups/{groupId}/finances/payments:
+    get:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Alle Einzahlungen anzeigen"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der getätigten Einzahlungen"
     post:
       tags: [Finanzverwaltung (Gruppe)]
       summary: "Geldsumme einzahlen / Überweisen"
@@ -717,8 +1399,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [amount, method]
+              required: [user_id, amount, method]
               properties:
+                user_id:
+                  type: integer
+                  description: "ID des Benutzers, der einzahlt"
                 amount:
                   type: number
                 method:
@@ -770,6 +1455,20 @@ paths:
           description: "Rückzahlung initiiert"
 
   # --- Dienstleister & Anfragen ---
+  /providers/{providerId}/customers:
+    get:
+      tags: [Dienstleister & Anfragen]
+      summary: "Kunden des Dienstleisters einsehen"
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Kunden (Veranstalter)"
+
   /providers/{providerId}/requests:
     post:
       tags: [Dienstleister & Anfragen]
@@ -787,21 +1486,86 @@ paths:
           application/json:
             schema:
               type: object
-              required: [location, start_date, end_date, budget]
+              required: [event_type, event_title, start_date, has_location]
               properties:
-                location:
+                event_type:
                   type: string
+                  enum: [public, private, corporate]
+                  description: "Art des Events (Öffentliches Event, Privat Event, Firmen/Institution Event)"
+                event_title:
+                  type: string
+                  description: "Welches Event wollen Sie veranstalten? (Freitext Titel)"
+                is_single_day:
+                  type: boolean
+                  description: "Ist das Event eintägig?"
                 start_date:
                   type: string
                   format: date-time
                 end_date:
                   type: string
                   format: date-time
-                budget:
+                has_location:
+                  type: boolean
+                  description: "Gibt es bereits eine Location?"
+                location_city_only:
+                  type: string
+                  description: "Ort des Events (falls has_location true)"
+                location_name:
+                  type: string
+                  description: "Name der Location (falls has_location false)"
+                location_type:
+                  type: string
+                  description: "Art der Location (falls has_location false)"
+                location_street:
+                  type: string
+                  description: "Straße und Hausnummer der Location (falls has_location false)"
+                location_zip_code:
+                  type: string
+                  description: "Postleitzahl der Location (falls has_location false)"
+                location_city:
+                  type: string
+                  description: "Ort der Location (falls has_location false)"
+                participants_count:
+                  type: integer
+                  description: "Geplante Teilnehmeranzahl"
+                min_participants_count:
+                  type: integer
+                  description: "Minimale Teilnehmeranzahl"
+                budget_min:
                   type: number
-                budget_flexibility:
+                  description: "Minimales Budget (von)"
+                budget_max:
                   type: number
-                  description: "Budget Spielraum in Prozent oder absolut"
+                  description: "Maximales Budget (bis)"
+                contact_first_name:
+                  type: string
+                  description: "Vorname des Ansprechpartners"
+                contact_last_name:
+                  type: string
+                  description: "Nachname des Ansprechpartners"
+                contact_company:
+                  type: string
+                  description: "Institution / Firma des Ansprechpartners"
+                contact_phone:
+                  type: string
+                  description: "Telefonnummer des Ansprechpartners"
+                contact_email:
+                  type: string
+                  description: "E-Mail-Adresse des Ansprechpartners"
+                contact_zip_code:
+                  type: string
+                  description: "Postleitzahl des Ansprechpartners"
+                contact_city:
+                  type: string
+                  description: "Ort des Ansprechpartners"
+                contact_street:
+                  type: string
+                  description: "Straße / Hausnummer des Ansprechpartners"
+                other_organizers:
+                  type: array
+                  items:
+                    type: string
+                  description: "Andere beteiligte Veranstalter"
       responses:
         "201":
           description: "Anfrage gesendet"
@@ -817,19 +1581,107 @@ paths:
           application/json:
             schema:
               type: object
-              required: [request_id, total_price, material_list]
+              required: [request_id, gross_price, net_price, offer_author]
               properties:
                 request_id:
                   type: integer
-                total_price:
+                  description: "Zugehörige Anfrage-ID"
+                gross_price:
                   type: number
-                material_list:
-                  type: array
-                  items:
-                    type: integer
+                  description: "Preis brutto"
+                net_price:
+                  type: number
+                  description: "Preis netto"
+                employee_name:
+                  type: string
+                  description: "Zuständiger Mitarbeiter"
+                wage_costs:
+                  type: number
+                  description: "Lohnkosten"
+                material_costs:
+                  type: number
+                  description: "Materialkosten"
+                admin_costs:
+                  type: number
+                  description: "Verwaltungskosten"
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+                duration_days:
+                  type: integer
+                  description: "Dauer in Tagen"
+                location:
+                  type: string
+                  description: "Ort des Events"
+                participants_count:
+                  type: integer
+                  description: "Teilnehmerzahl"
+                offer_author:
+                  type: string
+                  description: "Verfasser des Angebots"
       responses:
         "201":
           description: "Angebot generiert"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  offer_id:
+                    type: integer
+                  gross_price:
+                    type: number
+                  net_price:
+                    type: number
+                  employee_name:
+                    type: string
+                  wage_costs:
+                    type: number
+                  material_costs:
+                    type: number
+                  admin_costs:
+                    type: number
+                  start_date:
+                    type: string
+                    format: date-time
+                  end_date:
+                    type: string
+                    format: date-time
+                  duration_days:
+                    type: integer
+                  location:
+                    type: string
+                  participants_count:
+                    type: integer
+                  offer_author:
+                    type: string
+                  requester_name:
+                    type: string
+                    description: "Anfragesteller (aus Request)"
+                  requester_company:
+                    type: string
+                    description: "Firma / Institution (aus Request)"
+                  event_type:
+                    type: string
+                    description: "Eventtyp (aus Request)"
+                  event_kind:
+                    type: string
+                    description: "Eventart (aus Request)"
+                  event_location:
+                    type: string
+                    description: "Ort / Location (aus Request)"
+                  event_timeframe:
+                    type: string
+                    description: "Zeitraum (aus Request)"
+                  event_participants_count:
+                    type: integer
+                    description: "Teilnehmeranzahl (aus Request)"
+                  event_budget:
+                    type: number
+                    description: "Budget (aus Request)"
 
   /providers/offers/{offerId}/convert:
     post:
@@ -841,6 +1693,17 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [offer_id]
+              properties:
+                offer_id:
+                  type: integer
+                  description: "Zusätzliche Bestätigung: Welches Angebot soll konvertiert werden?"
       responses:
         "200":
           description: "In Event umgewandelt"
@@ -873,8 +1736,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [rating]
+              required: [reviewer_id, target_provider_id, rating]
               properties:
+                reviewer_id:
+                  type: integer
+                  description: "Benutzer-ID des Verfassers (Veranstalter)"
+                target_provider_id:
+                  type: integer
+                  description: "ID des Dienstleisters, der bewertet wird"
                 rating:
                   type: integer
                   minimum: 1
@@ -896,6 +1765,16 @@ paths:
           in: query
           schema:
             type: string
+        - name: available_start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: available_end
+          in: query
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: "Materialliste"
@@ -912,13 +1791,59 @@ paths:
               properties:
                 name:
                   type: string
+                identifier:
+                  type: string
+                  description: "Bezeichner"
+                manufacturer:
+                  type: string
+                  description: "Hersteller"
                 category:
                   type: string
+                purchase_price:
+                  type: number
+                  description: "Anschaffungspreis"
+                purchase_date:
+                  type: string
+                  format: date
+                  description: "Anschaffungsdatum"
+                photo_url:
+                  type: string
+                  description: "Foto / Bild URL"
                 on_day_price:
                   type: number
+                  description: "On-Day Preis"
+                off_day_discount:
+                  type: number
+                  description: "Rabatt für Off-Days"
+                next_maintenance_date:
+                  type: string
+                  format: date
+                  description: "Nächster Wartungstermin"
+                last_maintenance_date:
+                  type: string
+                  format: date
+                  description: "Letzter Wartungstermin"
                 maintenance_cycle:
                   type: integer
                   description: "Wartungszyklus in Tagen"
+                maintenance_reminder_days:
+                  type: integer
+                  description: "Tage vor Wartung für Erinnerung"
+                storage_location:
+                  type: string
+                  description: "Lagerstandort"
+                color:
+                  type: string
+                  description: "Farbe"
+                weight:
+                  type: number
+                  description: "Gewicht (z.B. in kg)"
+                length:
+                  type: number
+                  description: "Länge"
+                width:
+                  type: number
+                  description: "Breite"
       responses:
         "201":
           description: "Hinzugefügt"
@@ -935,7 +1860,101 @@ paths:
         "200":
           description: "Gelöscht (sofern leer)"
 
+  /materials/{materialId}:
+    put:
+      tags: [Materialverwaltung]
+      summary: "Material bearbeiten"
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                identifier:
+                  type: string
+                  description: "Bezeichner"
+                manufacturer:
+                  type: string
+                  description: "Hersteller"
+                category:
+                  type: string
+                purchase_price:
+                  type: number
+                  description: "Anschaffungspreis"
+                purchase_date:
+                  type: string
+                  format: date
+                  description: "Anschaffungsdatum"
+                photo_url:
+                  type: string
+                  description: "Foto / Bild URL"
+                on_day_price:
+                  type: number
+                  description: "On-Day Preis"
+                off_day_discount:
+                  type: number
+                  description: "Rabatt für Off-Days"
+                next_maintenance_date:
+                  type: string
+                  format: date
+                  description: "Nächster Wartungstermin"
+                last_maintenance_date:
+                  type: string
+                  format: date
+                  description: "Letzter Wartungstermin"
+                maintenance_cycle:
+                  type: integer
+                  description: "Wartungszyklus in Tagen"
+                maintenance_reminder_days:
+                  type: integer
+                  description: "Tage vor Wartung für Erinnerung"
+                storage_location:
+                  type: string
+                  description: "Lagerstandort"
+                color:
+                  type: string
+                  description: "Farbe"
+                weight:
+                  type: number
+                  description: "Gewicht (z.B. in kg)"
+                length:
+                  type: number
+                  description: "Länge"
+                width:
+                  type: number
+                  description: "Breite"
+      responses:
+        "200":
+          description: "Material aktualisiert"
+    delete:
+      tags: [Materialverwaltung]
+      summary: "Material löschen"
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Material gelöscht"
+
   /materials/categories:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Material Kategorien anzeigen"
+      responses:
+        "200":
+          description: "Liste der Kategorien"
     post:
       tags: [Materialverwaltung]
       summary: "Material Kategorie hinzufügen"
@@ -952,24 +1971,48 @@ paths:
       responses:
         "201":
           description: "Erstellt"
+
+  /materials/categories/{categoryId}:
     delete:
       tags: [Materialverwaltung]
       summary: "Material Kategorie löschen"
       parameters:
-        - name: name
-          in: query
+        - name: categoryId
+          in: path
           required: true
           schema:
-            type: string
+            type: integer
       responses:
         "200":
           description: "Gelöscht (sofern leer)"
+    put:
+      tags: [Materialverwaltung]
+      summary: "Material Kategorie bearbeiten"
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: "Aktualisiert"
 
   /materials/{materialId}/book:
     post:
       tags: [Materialverwaltung]
       summary: "Material buchen"
-      description: "On-Days und Off-Days (rabattiert) definieren. Beachtet Verfügbarkeit und Verleih-Historie."
+      description: "On-Days definieren. Beachtet Verfügbarkeit und Verleih-Historie."
       parameters:
         - name: materialId
           in: path
@@ -982,17 +2025,76 @@ paths:
           application/json:
             schema:
               type: object
-              required: [event_id, on_days, off_days]
+              required: [event_id, on_days]
               properties:
                 event_id:
                   type: integer
                 on_days:
                   type: integer
-                off_days:
-                  type: integer
+                  description: "Anzahl der On-Days (off-days werden nicht gespeichert)"
       responses:
         "200":
           description: "Gebucht"
+
+  /materials/{materialId}/book/{bookingId}:
+    put:
+      tags: [Materialverwaltung]
+      summary: "Materialbuchung nachträglich anpassen"
+      description: "Nachträgliches Ändern der on_days einer Buchung."
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [on_days]
+              properties:
+                on_days:
+                  type: integer
+                  description: "Neue Anzahl der On-Days"
+      responses:
+        "200":
+          description: "Buchung aktualisiert"
+
+  /materials/{materialId}/history:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Verleih-Historie anzeigen"
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Historie (wann, wo, bei wem)"
+
+  /materials/{materialId}/amortization:
+    get:
+      tags: [Materialverwaltung]
+      summary: "Amortisierung anzeigen / Fortschritt"
+      description: "Berechnet aus Einkaufspreis, Anzahl der Verleihungen und Preis."
+      parameters:
+        - name: materialId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Status (amortisiert: true/false) und Prozent des Fortschritts"
 
   # --- Personalverwaltung ---
   /employees:
@@ -1004,6 +2106,20 @@ paths:
           in: query
           schema:
             type: string
+        - name: driver_license
+          in: query
+          schema:
+            type: string
+        - name: available_start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: available_end
+          in: query
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: "Mitarbeiterliste"
@@ -1016,19 +2132,122 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, qualification, field]
+              required: [first_name, last_name, email]
               properties:
-                name:
+                first_name:
                   type: string
+                  description: "Vorname"
+                last_name:
+                  type: string
+                  description: "Nachname"
+                phone:
+                  type: string
+                  description: "Telefonnummer"
+                email:
+                  type: string
+                  description: "E-Mail-Adresse"
+                zip_code:
+                  type: string
+                  description: "Postleitzahl"
+                city:
+                  type: string
+                  description: "Ort"
+                street_and_number:
+                  type: string
+                  description: "Straße und Hausnummer"
+                bank_institution:
+                  type: string
+                  description: "Bankinstitut"
+                iban:
+                  type: string
+                  description: "IBAN"
+                account_number:
+                  type: string
+                  description: "Kontonummer"
                 qualification:
                   type: string
-                field:
+                  description: "Qualifizierung"
+                specialization:
                   type: string
+                  description: "Fachgebiet"
                 driver_license:
                   type: string
+                  description: "Führerscheinklasse"
       responses:
         "201":
           description: "Hinzugefügt"
+
+  /employees/{employeeId}:
+    put:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter bearbeiten"
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                  description: "Vorname"
+                last_name:
+                  type: string
+                  description: "Nachname"
+                phone:
+                  type: string
+                  description: "Telefonnummer"
+                email:
+                  type: string
+                  description: "E-Mail-Adresse"
+                zip_code:
+                  type: string
+                  description: "Postleitzahl"
+                city:
+                  type: string
+                  description: "Ort"
+                street_and_number:
+                  type: string
+                  description: "Straße und Hausnummer"
+                bank_institution:
+                  type: string
+                  description: "Bankinstitut"
+                iban:
+                  type: string
+                  description: "IBAN"
+                account_number:
+                  type: string
+                  description: "Kontonummer"
+                qualification:
+                  type: string
+                  description: "Qualifizierung"
+                specialization:
+                  type: string
+                  description: "Fachgebiet"
+                driver_license:
+                  type: string
+                  description: "Führerscheinklasse"
+      responses:
+        "200":
+          description: "Aktualisiert"
+    delete:
+      tags: [Personalverwaltung]
+      summary: "Mitarbeiter löschen"
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Gelöscht"
 
   /employees/{employeeId}/assign:
     post:
@@ -1093,13 +2312,30 @@ paths:
           application/json:
             schema:
               type: object
-              required: [event_id]
+              required: [event_id, offer_id]
               properties:
                 event_id:
                   type: integer
+                offer_id:
+                  type: integer
+                  description: "ID des zugrundeliegenden Angebots"
       responses:
         "201":
           description: "Rechnung erstellt und zugestellt"
+
+  /invoices/{invoiceId}:
+    get:
+      tags: [Rechnungsverwaltung]
+      summary: "Rechnungsdetails / PDF abrufen"
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Rechnungsdaten (Brutto, Netto, Materialliste)"
 
   /invoices/{invoiceId}/pay:
     put:

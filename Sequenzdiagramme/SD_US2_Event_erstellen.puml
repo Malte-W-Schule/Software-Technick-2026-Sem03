@@ -1,0 +1,57 @@
+@startuml SD_US2_Event_erstellen
+title US2 – Event erstellen
+
+actor "Veranstalter\n(Organizer)" as Org
+participant "Client\n(Web/App)" as Client
+participant "API Gateway" as API
+participant "Event-Service" as EventSvc
+participant "Gruppen-Service" as GroupSvc
+database "Datenbank" as DB
+participant "Benachrichtigungs-\nService" as Notif
+
+== Event erstellen ==
+
+Org -> Client : Event-Formular ausfüllen\n(Name, Datum, Ort, Budget,\nTeilnehmergebühr, Sichtbarkeit, ...)
+Client -> API : POST /events\n{event_name, time_period, zip_code, city,\nmin_budget, participant_fee,\nis_public, add_groups, ...}
+API -> API : JWT-Token prüfen
+API -> EventSvc : Erstellungsanfrage weiterleiten
+
+EventSvc -> DB : Event speichern\n(is_public, min_budget, participant_fee, ...)
+DB --> EventSvc : eventId
+
+opt Gruppen wurden angegeben
+    EventSvc -> GroupSvc : Gruppen mit Event verknüpfen\n(add_groups: [groupId, ...])
+    GroupSvc -> DB : Verknüpfung speichern
+    DB --> GroupSvc : OK
+    GroupSvc -> Notif : Benachrichtigung an Gruppenmitglieder senden
+    Notif --> GroupSvc : OK
+end
+
+EventSvc -> EventSvc : QR-Code & Event-URL generieren
+EventSvc --> API : 201 Created\n{eventId, qr_code_url, event_url}
+API --> Client : Event erfolgreich erstellt
+Client --> Org : Event-Dashboard öffnen\n(inkl. QR-Code, Sichtbarkeit-Status)
+
+== Mindest-Geldsumme überwacht (System) ==
+
+note over EventSvc, DB : Das System überwacht kontinuierlich\ndie eingehenden Einzahlungen
+DB -> EventSvc : Aktuelle Einzahlungssumme
+EventSvc -> EventSvc : Gesamtsumme >= min_budget?
+
+alt Mindest-Geldsumme erreicht
+    EventSvc -> Notif : Veranstalter benachrichtigen\n("Mindestbetrag erreicht – Event findet statt!")
+    Notif --> Org : Push / E-Mail Benachrichtigung
+end
+
+== Ticket-Typ hinzufügen ==
+
+Org -> Client : Ticket-Typen definieren\n(Kategorie, Preis, Anzahl)
+Client -> API : POST /events/{eventId}/ticket-types\n{category, price, quantity}
+API -> EventSvc : Ticket-Typ speichern
+EventSvc -> DB : Ticket-Typ anlegen
+DB --> EventSvc : OK
+EventSvc --> API : 201 Created
+API --> Client : Ticket-Typ erstellt
+Client --> Org : Bestätigung
+
+@enduml

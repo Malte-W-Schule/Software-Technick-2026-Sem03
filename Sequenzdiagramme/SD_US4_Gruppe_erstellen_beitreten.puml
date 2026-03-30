@@ -1,0 +1,56 @@
+@startuml SD_US4_Gruppe_erstellen_beitreten
+title US4 – Gruppe erstellen, beitreten & Rechte vergeben
+
+actor "Gruppenleiter" as Leader
+actor "Mitglied" as Member
+participant "Client\n(Web/App)" as Client
+participant "API Gateway" as API
+participant "Gruppen-Service" as GroupSvc
+database "Datenbank" as DB
+participant "Benachrichtigungs-\nService" as Notif
+
+== Gruppe erstellen ==
+
+Leader -> Client : "Neue Gruppe" anlegen\n(Name, Beschreibung, Zeitraum, ...)
+Client -> API : POST /groups\n{group_name, description, create_with_time_period,\nselectable_time_period, delete_after_expiration}
+API -> API : JWT-Token prüfen
+API -> GroupSvc : Gruppe erstellen
+GroupSvc -> DB : Gruppe speichern\n(Leader als Admin eintragen)
+DB --> GroupSvc : groupId
+GroupSvc -> GroupSvc : Beitritts-Code generieren\n(join_code)
+GroupSvc --> API : 201 Created\n{groupId, join_code}
+API --> Client : Gruppe erstellt\n(inkl. Beitritts-Code)
+Client --> Leader : Code anzeigen / teilen
+
+== Gruppe beitreten ==
+
+Leader -> Member : Beitritts-Code weitergeben\n(z. B. per Chat / QR-Code)
+Member -> Client : Beitritts-Code eingeben
+Client -> API : POST /groups/join\n{join_code}
+API -> API : JWT-Token prüfen
+API -> GroupSvc : Beitrittsanfrage prüfen
+GroupSvc -> DB : Code validieren & Gruppe abrufen
+DB --> GroupSvc : Gruppe gefunden
+GroupSvc -> DB : Mitglied zur Gruppe hinzufügen\n(Standard-Recht: Lesen)
+DB --> GroupSvc : OK
+GroupSvc -> Notif : Gruppenleiter benachrichtigen\n("Neues Mitglied: [Name]")
+Notif --> Leader : Push-/E-Mail-Benachrichtigung
+GroupSvc --> API : 200 OK {groupId, group_name}
+API --> Client : Erfolgreich beigetreten
+Client --> Member : Gruppenübersicht anzeigen
+
+== Rechte / Rollen vergeben (Gruppenleiter) ==
+
+Leader -> Client : Mitgliederliste öffnen\n→ Mitglied auswählen → Rechte vergeben
+Client -> API : PUT /groups/{groupId}\n{members_read_only: false,\nmember_id: X, role: "admin"|"member"}
+API -> API : JWT-Token prüfen (nur Gruppenleiter berechtigt)
+API -> GroupSvc : Rechte aktualisieren
+GroupSvc -> DB : Mitgliederrechte speichern
+DB --> GroupSvc : OK
+GroupSvc -> Notif : Mitglied benachrichtigen\n("Dir wurden neue Rechte zugewiesen")
+Notif --> Member : Push / E-Mail Benachrichtigung
+GroupSvc --> API : 200 OK
+API --> Client : Rechte gespeichert
+Client --> Leader : Bestätigung
+
+@enduml
