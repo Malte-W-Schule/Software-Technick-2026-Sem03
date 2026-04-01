@@ -42,7 +42,7 @@ Client --> Member : Gruppenübersicht anzeigen
 == Rechte / Rollen vergeben (Gruppenleiter) ==
 
 Leader -> Client : Mitgliederliste öffnen\n→ Mitglied auswählen → Rechte vergeben
-Client -> API : PUT /groups/{groupId}\n{members_read_only: false,\nmember_id: X, role: "admin"|"member"}
+Client -> API : PUT /groups/{groupId}/members/{userId}/role\n{user_id, role: "admin"|"read_only"|"member"}
 API -> API : JWT-Token prüfen (nur Gruppenleiter berechtigt)
 API -> GroupSvc : Rechte aktualisieren
 GroupSvc -> DB : Mitgliederrechte speichern

@@ -38,8 +38,8 @@ Client --> User : Erfolgsmeldung + Hinweis auf starkes Passwort & 2FA
 
 == Login ==
 
-User -> Client : Benutzername oder E-Mail & Passwort eingeben
-Client -> API : POST /auth/login\n{email_or_username, password}
+User -> Client : E-Mail & Passwort eingeben
+Client -> API : POST /auth/login\n{email, password}
 API -> Auth : Login-Anfrage weiterleiten
 Auth -> DB : Nutzer & Passwort prüfen
 DB --> Auth : Nutzerdaten

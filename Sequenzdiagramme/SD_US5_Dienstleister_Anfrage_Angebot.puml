@@ -12,8 +12,8 @@ participant "Benachrichtigungs-\nService" as Notif
 
 == Anfrage senden ==
 
-Org -> Client : Dienstleister suchen & Anfrage erstellen\n(Leistungsart, Start/Ende, Ort, Budget,\nBudget-Spielraum, weitere Veranstalter)
-Client -> API : POST /events/{eventId}/provider-requests\n{provider_id, service_type, date_start,\ndate_end, location, budget,\nbudget_flexibility, description}
+Org -> Client : Dienstleister suchen & Anfrage erstellen\n(Event-Typ, Titel, Start/Ende, Ort, Budget,\nBudget-Spielraum, Kontaktdaten)
+Client -> API : POST /providers/{providerId}/requests\n{event_type, event_title, start_date,\nend_date, has_location, budget_min,\nbudget_max, participants_count,\ncontact_first_name, contact_email, ...}
 API -> API : JWT-Token prüfen
 API -> ProvSvc : Anfrage weiterleiten
 ProvSvc -> DB : Anfrage speichern\n(status: "offen")
@@ -27,12 +27,12 @@ Client --> Org : Bestätigung anzeigen
 == Angebot erstellen ==
 
 Provider -> Client : Anfrage-Details ansehen
-Client -> API : GET /provider-requests/{requestId}
+Client -> API : GET /providers/{providerId}/requests/{requestId}
 API --> Client : Anfragedetails
 Client --> Provider : Anfrage anzeigen
 
 Provider -> Client : Angebot erstellen\n(Preis brutto/netto/Rabatt,\nMitarbeiter, Lohnkosten, Materialkosten,\nFahrtkosten, Verwaltungskosten,\nDatum, Dauer, Ort, Materialliste)
-Client -> API : POST /provider-requests/{requestId}/offers\n{price_gross, price_net, discount,\nstaff, labor_costs, material_costs,\ntravel_costs, admin_costs,\nvalid_until, notes, material_list}
+Client -> API : POST /providers/offers/generate\n{request_id, gross_price, net_price,\noffer_author, employee_name,\nwage_costs, material_costs,\nadmin_costs, start_date, end_date,\nlocation, participants_count}
 API -> ProvSvc : Angebot weiterleiten
 ProvSvc -> DB : Angebot speichern\n(status: "ausstehend")
 DB --> ProvSvc : offerId
@@ -45,13 +45,13 @@ Client --> Provider : Bestätigung
 == Angebot annehmen / ablehnen ==
 
 Org -> Client : Angebote prüfen & vergleichen
-Client -> API : GET /provider-requests/{requestId}/offers
+Client -> API : GET /providers/{providerId}/requests/{requestId}/offers
 API --> Client : Angebotsliste
 Client --> Org : Angebote vergleichen
 
 alt Angebot annehmen
     Org -> Client : "Annehmen" klicken
-    Client -> API : PUT /offers/{offerId}\n{status: "angenommen"}
+    Client -> API : PUT /providers/offers/{offerId}\n{status: "angenommen"}
     API -> ProvSvc : Status aktualisieren
     ProvSvc -> DB : Angebot als "angenommen" speichern
     DB --> ProvSvc : OK
@@ -64,7 +64,7 @@ alt Angebot annehmen
     == Anfrage zu Event konvertieren ==
 
     Org -> Client : "Zu Event konvertieren" klicken
-    Client -> API : POST /provider-requests/{requestId}/convert-to-event\n{event_name, date_start, date_end,\nlocation, budget}
+    Client -> API : POST /providers/offers/{offerId}/convert\n{offer_id}
     API -> EventSvc : Event aus Anfrage generieren
     EventSvc -> DB : Event anlegen\n(mit Daten aus der Anfrage)
     DB --> EventSvc : eventId
@@ -75,7 +75,7 @@ alt Angebot annehmen
 
 else Angebot ablehnen
     Org -> Client : "Ablehnen" klicken
-    Client -> API : PUT /offers/{offerId}\n{status: "abgelehnt"}
+    Client -> API : PUT /providers/offers/{offerId}\n{status: "abgelehnt"}
     API -> ProvSvc : Status aktualisieren
     ProvSvc -> DB : Angebot als "abgelehnt" speichern
     ProvSvc -> Notif : Dienstleister informieren\n("Angebot abgelehnt")

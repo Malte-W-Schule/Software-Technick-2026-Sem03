@@ -60,7 +60,7 @@ paths:
                   type: string
                 role:
                   type: string
-                  enum: [privat, institution, Firma, kommerziell]
+                  enum: [privat, institution, firma, kommerziell]
                 company_name:
                   type: string
                   description: "Name der Institution oder Firma (erforderlich für kommerzielle Anbieter und Institutionen)"
@@ -155,6 +155,28 @@ paths:
       responses:
         "200":
           description: "Passwort erfolgreich zurückgesetzt"
+
+  /auth/verify-2fa:
+    post:
+      tags: [Kundenverwaltung]
+      summary: "Zwei-Faktor-Code verifizieren"
+      description: "Prüft den Einmalcode nach erfolgreichem Login mit aktivierter 2FA."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  description: "Einmalcode (aus App, SMS oder E-Mail)"
+      responses:
+        "200":
+          description: "2FA erfolgreich, JWT Token zurückgegeben"
+        "401":
+          description: "Ungültiger oder abgelaufener Code"
 
   /users/me:
     get:
@@ -308,6 +330,9 @@ paths:
             schema:
               type: object
               properties:
+                is_public:
+                  type: boolean
+                  description: "Sichtbarkeit des Events (öffentlich oder privat)"
                 username:
                   type: string
                   description: "Benutzername"
@@ -624,9 +649,14 @@ paths:
                 category:
                   type: string
                   description: "Kategorie (Tickets)"
+                payment_method:
+                  type: string
+                  description: "Zahlungsmethode (z.B. paypal, credit_card, sepa)"
       responses:
         "201":
           description: "Ticket generiert (PDF/QR Code)"
+        "402":
+          description: "Zahlung fehlgeschlagen"
 
   # --- Gruppenverwaltung ---
   /groups:
@@ -715,6 +745,9 @@ paths:
             schema:
               type: object
               properties:
+                min_deposit_per_member:
+                  type: number
+                  description: "Mindest-Geldbetrag pro Mitglied für Einzahlungen"
                 group_leader:
                   type: integer
                   description: "ID des Gruppenleiters"
@@ -1306,25 +1339,6 @@ paths:
         "204":
           description: "Aufgabe gelöscht"
 
-  /groups/{groupId}/tasks/{taskId}:
-    delete:
-      tags: [Aufgaben]
-      summary: "Aufgabe löschen"
-      parameters:
-        - name: groupId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: taskId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: "Erledigt"
-
   # --- Finanzverwaltung (Gruppe) ---
   #todo think about user id when paying?
   /groups/{groupId}/finances/expenses:
@@ -1380,6 +1394,12 @@ paths:
           required: true
           schema:
             type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ausstehend, bestätigt]
+          description: "Filter nach Einzahlungsstatus"
       responses:
         "200":
           description: "Liste der getätigten Einzahlungen"
@@ -1450,9 +1470,42 @@ paths:
                   type: integer
                 amount:
                   type: number
+                reason:
+                  type: string
+                  description: "Grund für die Rückerstattung"
       responses:
         "200":
           description: "Rückzahlung initiiert"
+
+  /groups/{groupId}/finances/payments/{paymentId}:
+    put:
+      tags: [Finanzverwaltung (Gruppe)]
+      summary: "Einzahlung bestätigen / Status ändern (Gruppenleiter)"
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [bestätigt, abgelehnt]
+      responses:
+        "200":
+          description: "Einzahlungsstatus aktualisiert"
 
   # --- Dienstleister & Anfragen ---
   /providers/{providerId}/customers:
@@ -1468,6 +1521,69 @@ paths:
       responses:
         "200":
           description: "Liste der Kunden (Veranstalter)"
+
+  /providers/{providerId}/requests/{requestId}:
+    get:
+      tags: [Dienstleister & Anfragen]
+      summary: "Anfragedetails abrufen"
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Details der Anfrage"
+
+  /providers/{providerId}/requests/{requestId}/offers:
+    get:
+      tags: [Dienstleister & Anfragen]
+      summary: "Angebote zu einer Anfrage abrufen"
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Liste der Angebote zur Anfrage"
+
+  /providers/offers/{offerId}:
+    put:
+      tags: [Dienstleister & Anfragen]
+      summary: "Angebot annehmen oder ablehnen"
+      parameters:
+        - name: offerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [angenommen, abgelehnt]
+      responses:
+        "200":
+          description: "Angebotsstatus aktualisiert"
 
   /providers/{providerId}/requests:
     post:
@@ -1756,7 +1872,7 @@ paths:
 
   # --- Materialverwaltung ---
   # material id? string input?
-  /materials{materialId}:
+  /materials:
     get:
       tags: [Materialverwaltung]
       summary: "Material filtern / suchen"

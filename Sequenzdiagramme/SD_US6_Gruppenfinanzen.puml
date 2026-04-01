@@ -23,29 +23,29 @@ Client --> Leader : Bestätigung
 
 == Einzahlung erfassen (Mitglied) ==
 
-Member -> Client : Einzahlung eintragen\n(Betrag, Verwendungszweck, Datum)
-Client -> API : POST /groups/{groupId}/finances/deposits\n{amount, purpose, date, payment_method}
+Member -> Client : Einzahlung eintragen\n(Betrag, Zahlungsmethode)
+Client -> API : POST /groups/{groupId}/finances/payments\n{user_id, amount, method}
 API -> API : JWT-Token prüfen\n(Mitglied der Gruppe? Betrag >= min_deposit?)
 API -> FinSvc : Einzahlung verarbeiten
-FinSvc -> DB : Einzahlung speichern\n(status: "ausstehend", name & Betrag gelistet)
-DB --> FinSvc : depositId
+FinSvc -> DB : Einzahlung speichern\n(status: "ausstehend", Name & Betrag gelistet)
+DB --> FinSvc : paymentId
 FinSvc -> Notif : Gruppenleiter benachrichtigen\n("Neue Einzahlung von [Name]: X €")
 Notif --> Leader : E-Mail / Push-Benachrichtigung
 FinSvc -> Notif : Mitglied bestätigen\n("Deine Einzahlung ist eingegangen")
 Notif --> Member : Bestätigungsnachricht (bevorzugter Kommunikationsweg)
-FinSvc --> API : 201 Created\n{depositId}
+FinSvc --> API : 200 OK\n{paymentId}
 API --> Client : Einzahlung erfasst
 Client --> Member : Bestätigung anzeigen
 
 == Einzahlung bestätigen (Gruppenleiter) ==
 
 Leader -> Client : Offene Einzahlungen anzeigen
-Client -> API : GET /groups/{groupId}/finances/deposits?status=ausstehend
+Client -> API : GET /groups/{groupId}/finances/payments?status=ausstehend
 API --> Client : Liste offener Einzahlungen (Name + Betrag)
 Client --> Leader : Einzahlungen anzeigen
 
 Leader -> Client : Einzahlung bestätigen
-Client -> API : PUT /groups/{groupId}/finances/deposits/{depositId}\n{status: "bestätigt"}
+Client -> API : PUT /groups/{groupId}/finances/payments/{paymentId}\n{status: "bestätigt"}
 API -> FinSvc : Status aktualisieren
 FinSvc -> DB : Status auf "bestätigt" setzen
 DB --> FinSvc : OK
@@ -58,7 +58,7 @@ Client --> Leader : Kassensturz-Übersicht aktualisiert
 == Ausgaben darstellen ==
 
 Member -> Client : Ausgaben eintragen\n(Was bringt man mit, für welchen Preis)
-Client -> API : POST /groups/{groupId}/finances/expenses\n{description, amount, contributor_id}
+Client -> API : POST /groups/{groupId}/finances/expenses\n{description, amount, payer_id}
 API -> FinSvc : Ausgabe speichern
 FinSvc -> DB : Ausgabe anlegen (wer, was, wie viel)
 DB --> FinSvc : expenseId
@@ -69,7 +69,7 @@ Client --> Member : Ausgabenliste aktualisiert
 == Kassensturz abrufen ==
 
 Leader -> Client : "Kassensturz" aufrufen
-Client -> API : GET /groups/{groupId}/finances/summary
+Client -> API : GET /groups/{groupId}/finances/balance
 API -> FinSvc : Finanzzusammenfassung berechnen
 FinSvc -> DB : Alle Einzahlungen & Ausgaben abrufen
 DB --> FinSvc : Finanzdaten
@@ -79,13 +79,13 @@ API --> Client : Finanzbericht
 Client --> Leader : Kassensturz anzeigen\n(Wer hat wie viel beigetragen, Gesamtsumme)
 
 opt Rückerstattung auslösen
-    Leader -> Client : Rückerstattung beantragen\n(Mitglied, Betrag)
-    Client -> API : POST /groups/{groupId}/finances/refunds\n{member_id, amount, reason}
+    Leader -> Client : Rückerstattung beantragen\n(Mitglied, Betrag, Grund)
+    Client -> API : POST /groups/{groupId}/finances/refund\n{user_id, amount, reason}
     API -> FinSvc : Rückerstattung verarbeiten
     FinSvc -> DB : Rückerstattung speichern
     FinSvc -> Notif : Mitglied benachrichtigen
     Notif --> Member : "Rückerstattung von {Betrag} € veranlasst"
-    FinSvc --> API : 201 Created
+    FinSvc --> API : 200 OK
     API --> Client : Rückerstattung ausgelöst
     Client --> Leader : Bestätigung
 end
