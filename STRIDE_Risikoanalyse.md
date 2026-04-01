@@ -24,6 +24,7 @@ Das Evently Event-System ist ein Client-Server-System mit einer dreistufigen Arc
 - **Stufe 3 (Daten):** PostgreSQL-Datenbank, S3-kompatibler Medienspeicher
 
 Besonders schützenswerte Assets sind:
+
 - Nutzerdaten (E-Mail, Telefon, IBAN, Passwort-Hashes)
 - JWT-Authentifizierungstoken
 - Finanzdaten (Einzahlungen, Ausgaben, Rückerstattungen)
@@ -34,6 +35,7 @@ Besonders schützenswerte Assets sind:
 ## S – Spoofing (Identitätstäuschung)
 
 ### S1 – Credential-basierter Identitätsbetrug
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein Angreifer meldet sich mit gestohlenen Zugangsdaten (E-Mail + Passwort) als legitimer Nutzer an. |
@@ -42,6 +44,7 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Zwei-Faktor-Authentifizierung (2FA via SMS, E-Mail oder App); Rate-Limiting (max. 5 Fehlversuche/Minute pro IP); Kontensperre nach Mehrfachfehlschlägen; bcrypt-Passwort-Hashing mit Salt |
 
 ### S2 – JWT-Token-Fälschung
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein Angreifer erstellt oder manipuliert ein JWT-Token, um sich als anderer Nutzer oder als Administrator auszugeben. |
@@ -49,11 +52,21 @@ Besonders schützenswerte Assets sind:
 | **Wahrscheinlichkeit** | Mittel |
 | **Schutzmaßnahmen** | Starke Signierung der JWTs (RS256 oder HS256 mit sicherem Secret); kurze Token-Laufzeit (z.B. 15 min) + Refresh-Token-Mechanismus; Token-Blacklist bei Logout; Prüfung des `alg`-Headers gegen „none"-Angriff |
 
+### S3 – Account-Übernahme via Password-Reset
+
+| Feld | Inhalt |
+|------|--------|
+| **Bedrohung** | Ein Angreifer errät, fängt ab oder nutzt fehlerhaft konfigurierte Reset-Tokens, um das Passwort eines anderen Nutzers zu ändern. |
+| **Betroffene Komponente** | `POST /auth/forgot-password`, `POST /auth/reset-password` |
+| **Wahrscheinlichkeit** | Mittel |
+| **Schutzmaßnahmen** | Krypto-sichere, kurzlebige Reset-Tokens (z.B. 30 Minuten Gültigkeit); Token kann nur einmal verwendet werden; E-Mail-Benachrichtigung an den Nutzer bei Passwort-Änderung. |
+
 ---
 
 ## T – Tampering (Datenmanipulation)
 
 ### T1 – SQL-Injection
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Angreifer injiziert SQL-Code in API-Parameter (z.B. Suchfelder, Filter), um Datenbankdaten zu lesen, zu ändern oder zu löschen. |
@@ -62,6 +75,7 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Ausschließlicher Einsatz von Prepared Statements / ORM; serverseitige Eingabevalidierung aller Parameter; Web Application Firewall (WAF) |
 
 ### T2 – Manipulation von Ticketpreisen und Finanzdaten
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein Nutzer manipuliert den Request-Body beim Ticketkauf (z.B. `price: 0.01` statt des echten Preises), um Tickets zu unterbezahlen. |
@@ -70,26 +84,38 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Preis wird **ausschließlich serverseitig** anhand der Ticket-Typ-ID aus der Datenbank ermittelt; kein clientseitiger Preis wird akzeptiert; HTTPS schützt den Transportweg |
 
 ### T3 – Manipulation von IBAN- und Bankdaten
+
 | Feld | Inhalt |
 |------|--------|
-| **Bedrohung** | Angreifer ändert gespeichertes Bankkonto (IBAN/BIC) für Gruppenfinanzierungen oder Auszahlungen, um Gelder umzuleiten. |
-| **Betroffene Komponente** | `POST /events`, `POST /groups/{groupId}/finances`, Finanz-Service |
+| **Bedrohung** | Angreifer ändert gespeichertes Bankkonto (IBAN/BIC), z.B. das Veranstaltungskonto für Teilnehmereinzahlungen oder Ticketing, um Gelder umzuleiten. |
+| **Betroffene Komponente** | `POST /events`, `PUT /events/{eventId}`, Event- & Finanz-Service |
 | **Wahrscheinlichkeit** | Niedrig (erfordert Authentifizierung) |
 | **Schutzmaßnahmen** | IBAN-Validierung nach SEPA-Standard serverseitig; Änderungen an Bankdaten erzeugen einen E-Mail-Bestätigungslink; Audit-Logging aller Finanzänderungen |
+
+### T4 – Manipulation von Umfragen (Double Voting)
+
+| Feld | Inhalt |
+|------|--------|
+| **Bedrohung** | Ein Nutzer manipuliert den Request an den Abstimmungs-Endpunkt, um mehrfach abzustimmen oder ungültige Antwort-Optionen zu erzwingen. |
+| **Betroffene Komponente** | `POST /groups/{groupId}/polls/{pollId}/vote` |
+| **Wahrscheinlichkeit** | Mittel |
+| **Schutzmaßnahmen** | Serverseitige Validierung, ob der Nutzer bereits abgestimmt hat; Validierung der übermittelten Antworten gegen die verfügbaren Optionen der Umfrage. |
 
 ---
 
 ## R – Repudiation (Abstreitbarkeit)
 
 ### R1 – Abstreiten von Finanztransaktionen
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein Gruppenleiter oder Mitglied bestreitet, eine Ausgabe getätigt oder eine Einzahlung bestätigt zu haben. |
-| **Betroffene Komponente** | Finanz-Service, `POST /groups/{groupId}/finances/expenses` |
+| **Betroffene Komponente** | Finanz-Service, `POST /groups/{groupId}/finances/expenses`, `PUT /groups/{groupId}/finances/payments/{paymentId}` |
 | **Wahrscheinlichkeit** | Mittel |
 | **Schutzmaßnahmen** | Unveränderliches Audit-Log (Zeitstempel, User-ID, Aktion, IP-Adresse); E-Mail-Bestätigung bei größeren Transaktionen; digitale Quittungen für Ticketkäufe |
 
 ### R2 – Abstreiten von Angebots- oder Vertragsannahmen
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein Dienstleister bestreitet, ein Angebot erstellt oder akzeptiert zu haben. |
@@ -102,6 +128,7 @@ Besonders schützenswerte Assets sind:
 ## I – Information Disclosure (Datenleck)
 
 ### I1 – Unbefugter Zugriff auf Nutzerdaten
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein authentifizierter Nutzer ruft persönliche Daten eines anderen Nutzers ab (z.B. E-Mail, Telefonnummer, IBAN). |
@@ -110,6 +137,7 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Rollenbasierte Zugriffssteuerung (RBAC); API-Responses geben nur die für die Rolle notwendigen Felder zurück (Datensparsamkeit); IBAN wird nie im Klartext an Clients zurückgegeben |
 
 ### I2 – XSS-Angriff und Token-Diebstahl
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein Angreifer injiziert JavaScript in Kommentarfelder (z.B. bei Event-Kommentaren). Das Script liest den JWT-Token aus dem `localStorage` und sendet ihn an den Angreifer. |
@@ -118,6 +146,7 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Output-Encoding aller angezeigten Nutzerdaten; Content-Security-Policy (CSP) im HTTP-Header; JWT in `HttpOnly`-Cookies statt `localStorage`; serverseitige Eingabebereinigung (Sanitization) |
 
 ### I3 – Datenleck durch ausführliche Fehlermeldungen
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Server gibt bei Fehlern interne Informationen preis (Stack Traces, SQL-Fehlermeldungen, Datenbankstruktur), die einem Angreifer bei weiteren Angriffen helfen. |
@@ -130,14 +159,16 @@ Besonders schützenswerte Assets sind:
 ## D – Denial of Service (Dienstverweigerung)
 
 ### D1 – Brute-Force-Angriff auf Login/Registrierung
+
 | Feld | Inhalt |
 |------|--------|
-| **Bedrohung** | Massenhafte automatisierte Anfragen an den Login- oder Registrierungsendpunkt überlasten den Auth-Service. |
-| **Betroffene Komponente** | `POST /auth/login`, `POST /auth/register` |
+| **Bedrohung** | Massenhafte automatisierte Anfragen an den Login-, Registrierungs- oder 2FA-Endpunkt überlasten den Auth-Service. |
+| **Betroffene Komponente** | `POST /auth/login`, `POST /auth/register`, `POST /auth/verify-2fa` |
 | **Wahrscheinlichkeit** | Hoch |
 | **Schutzmaßnahmen** | Rate-Limiting (z.B. 10 Requests/Minute pro IP); CAPTCHA bei Registrierung; automatische IP-Sperrung bei Auffälligkeiten; horizontale Skalierung des Auth-Service |
 
 ### D2 – Upload-Flood über Medien-Endpunkt
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Angreifer lädt massenhaft große Bild- und Videodateien hoch, um Speicherplatz und Bandbreite zu erschöpfen. |
@@ -146,6 +177,7 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Maximale Dateigröße pro Upload (z.B. 10 MB); MIME-Type-Validierung (nur erlaubte Formate); Rate-Limiting für Upload-Endpunkte; asynchrone Verarbeitung über CDN/Blob-Storage |
 
 ### D3 – Ressourcenerschöpfung durch komplexe Suchanfragen
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Angreifer sendet rechenintensive Suchanfragen (z.B. sehr großer Radius, viele Filter), die den Event-Service überlasten. |
@@ -158,6 +190,7 @@ Besonders schützenswerte Assets sind:
 ## E – Elevation of Privilege (Rechteausweitung)
 
 ### E1 – Zugriff auf Admin-/Gruppenleiter-Funktionen
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Ein normaler Nutzer ruft Endpunkte auf, die nur Gruppenleitern oder Veranstaltern zugänglich sein sollen (z.B. Gruppe löschen, Event bearbeiten). |
@@ -166,20 +199,31 @@ Besonders schützenswerte Assets sind:
 | **Schutzmaßnahmen** | Serverseitige Rollenprüfung bei jedem Request (RBAC); Rollen werden im JWT-Token hinterlegt und vom API Gateway verifiziert; „Principle of Least Privilege" |
 
 ### E2 – IDOR (Insecure Direct Object Reference)
+
 | Feld | Inhalt |
 |------|--------|
-| **Bedrohung** | Ein Nutzer greift durch simples Durchnummerieren von IDs auf Events, Gruppen oder Finanzdaten anderer Nutzer zu, zu denen er keine Berechtigung hat (z.B. `GET /groups/42/finances`). |
-| **Betroffene Komponente** | Alle Endpunkte mit Pfadparametern (`{eventId}`, `{groupId}`, etc.) |
+| **Bedrohung** | Ein Nutzer greift durch simples Durchnummerieren von IDs auf Events, Gruppen oder Finanzdaten anderer Nutzer zu, zu denen er keine Berechtigung hat (z.B. `GET /groups/42/finances/balance` oder `/providers/offers/12`). |
+| **Betroffene Komponente** | Alle Endpunkte mit Pfadparametern (`{eventId}`, `{groupId}`, `{offerId}`, etc.) |
 | **Wahrscheinlichkeit** | Hoch |
 | **Schutzmaßnahmen** | Ressourcenbasierte Autorisierungsprüfung auf dem Server (z.B. Ist der anfragende Nutzer Mitglied der Gruppe mit ID 42?); Verwendung von nicht-erratbaren UUIDs statt sequenzieller Integer-IDs |
 
 ### E3 – JWT-Claim-Manipulation
+
 | Feld | Inhalt |
 |------|--------|
 | **Bedrohung** | Angreifer modifiziert den JWT-Payload (z.B. `"role": "admin"`) und sendet ihn ohne gültige Signatur, in der Hoffnung, dass die Signatur nicht validiert wird. |
 | **Betroffene Komponente** | API Gateway, Auth-Service |
 | **Wahrscheinlichkeit** | Niedrig (bei korrekter Implementierung) |
 | **Schutzmaßnahmen** | Strenge Signaturvalidierung des JWTs bei jedem Request; Ablehnung von Tokens mit `"alg": "none"`; regelmäßige Rotation der Signing-Keys |
+
+### E4 – Gruppeninterne Privilegienerweiterung
+
+| Feld | Inhalt |
+|------|--------|
+| **Bedrohung** | Ein reguläres Gruppenmitglied ruft den Administrations-Endpunkt auf, um sich selbst Admin-Rechte (`"role": "admin"`) zuzuweisen. |
+| **Betroffene Komponente** | `PUT /groups/{groupId}/members/{userId}/role` |
+| **Wahrscheinlichkeit** | Mittel |
+| **Schutzmaßnahmen** | Konsequente Überprüfung der Zugriffsrechte: Nur aktive Gruppenleiter/Admins dürfen diesen Endpunkt für ihre Gruppe erfolgreich aufrufen. |
 
 ---
 
