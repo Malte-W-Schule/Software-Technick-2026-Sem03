@@ -1,0 +1,172 @@
+@startuml Verteilungsdiagramm_Evently
+
+title Verteilungsdiagramm – Evently Event-System (Drei-Stufen-Architektur)
+
+skinparam node {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #FEF3C7
+  BorderColor #D97706
+}
+skinparam component {
+  BackgroundColor #ECFDF5
+  BorderColor #059669
+}
+skinparam cloud {
+  BackgroundColor #FDF2F8
+  BorderColor #9333EA
+}
+skinparam arrow {
+  Color #374151
+}
+
+' ============================================================
+' STUFE 1: PRÄSENTATIONSSCHICHT (Client)
+' ============================================================
+package "Stufe 1: Präsentationsschicht" {
+
+  node "Endgerät: PC / Laptop\n<<Client>>" as WebClient {
+    component "Web-Browser\n(React / HTML + JS)" as WebApp
+  }
+
+  node "Endgerät: Smartphone\n<<Client>>" as MobileClient {
+    component "Mobile App\n(iOS / Android)\nPrivat / Dienstleister / ..." as MobileApp
+  }
+}
+
+' ============================================================
+' STUFE 2: LOGIKSCHICHT (Anwendungsserver)
+' ============================================================
+package "Stufe 2: Logikschicht (Anwendungsserver)" {
+
+  node "Reverse Proxy / Load Balancer\n<<Server: nginx>>" as LB {
+    component "TLS-Terminierung\nHTTPS → HTTP intern" as TLS
+  }
+
+  node "API Gateway\n<<Server>>" as Gateway {
+    component "Routing &\nAuthentifizierungs-Middleware" as GWComp
+    component "Rate Limiter &\nRequest Validation" as RateLimit
+  }
+
+  ' --- Kerndienste ---
+  node "Kundenverwaltung\n<<Microservice>>" as AuthService {
+    component "Konto\nLogin / Registrierung\nJWT & 2FA" as AuthComp
+  }
+
+  node "Eventverwaltung\n<<Microservice>>" as EventService {
+    component "Events erstellen & verwalten\nTicketing & Kommentare" as EventComp
+  }
+
+  node "Gruppenverwaltung\n<<Microservice>>" as GroupService {
+    component "Gruppen, Mitglieder\nBeitritts-Codes & Matchmaking" as GroupComp
+  }
+
+  ' --- Kollaborationsdienste ---
+  node "Aufgaben\n<<Microservice>>" as TaskService {
+    component "Aufgaben\nZeitpläne & Zuweisungen" as TaskComp
+  }
+
+  node "Notizen\n<<Microservice>>" as NoteService {
+    component "Notizen\nFreitext & Termine" as NoteComp
+  }
+
+  node "Umfragen\n<<Microservice>>" as PollService {
+    component "Dynamische Umfragen\n& Abstimmungen" as PollComp
+  }
+
+  ' --- Dienstleister-Verbund ---
+  node "Dienstleister\n<<Microservice>>" as ProviderService {
+    component "Anfragen & Angebote\nBewertungen" as ProvComp
+    component "Buchungs-System\n& Zeitplan" as BookingComp
+    component "Asset-Verwaltung\n(Material & Equipment)" as AssetComp
+    component "Finanz-Verwaltung\n(Dienstleister intern)" as ProvFinComp
+  }
+
+  ' --- Rechnungsdienste ---
+  node "Rechnungsverwaltung\n<<Microservice>>" as InvoiceService {
+    component "Rechnungen erstellen\n& prüfen" as InvComp
+    component "Zahlungsverwaltung\n(Mahnungen, Status)" as PayMgmtComp
+  }
+
+  ' --- Benachrichtigung ---
+  node "Benachrichtigungs-Service\n<<Microservice>>" as NotifService {
+    component "E-Mail, SMS\n& 2FA-Codes" as NotifComp
+  }
+}
+
+' ============================================================
+' STUFE 3: DATENSCHICHT (Datenbankserver)
+' ============================================================
+package "Stufe 3: Datenschicht (Datenbankserver)" {
+
+  node "Datenbankserver\n<<Server: PostgreSQL>>" as DBServer {
+    database "Haupt-Datenbank\n(Nutzer, Events, Gruppen,\nFinanzen, Aufgaben, Notizen)" as MainDB
+  }
+
+  node "Dateispeicher\n<<Server: S3-kompatibler Storage>>" as FileServer {
+    database "Medien-Speicher\n(Bilder, Videos,\nTicket-PDFs, QR-Codes)" as FileStorage
+  }
+}
+
+' ============================================================
+' EXTERNE DIENSTE
+' ============================================================
+cloud "Externe Dienste\n<<Internet>>" {
+  component "Zahlungsanbieter\n(PayPal / Stripe / SEPA)" as Payment
+  component "Ticket-API\n(z.B. Ticketmaster /\neigener QR-Generator)" as TicketAPI
+  component "Kalender-API\n(z.B. Google Calendar /\niCal)" as CalAPI
+  component "SMS-Gateway\n(z.B. Twilio)" as SMS
+  component "E-Mail-Provider\n(z.B. SendGrid)" as EmailProv
+}
+
+' ============================================================
+' KOMMUNIKATIONSBEZIEHUNGEN
+' ============================================================
+
+' Client → Load Balancer
+WebApp    --> LB : HTTPS (443)\n<<TLS encrypted>>
+MobileApp --> LB : HTTPS (443)\n<<TLS encrypted>>
+
+' Load Balancer → API Gateway
+LB --> Gateway : HTTP intern (80)\n<<internal network>>
+
+' API Gateway → Microservices
+Gateway --> AuthService     : REST / HTTP\n<<JWT-Validierung>>
+Gateway --> EventService    : REST / HTTP
+Gateway --> GroupService    : REST / HTTP
+Gateway --> TaskService     : REST / HTTP
+Gateway --> NoteService     : REST / HTTP
+Gateway --> PollService     : REST / HTTP
+Gateway --> ProviderService : REST / HTTP
+Gateway --> InvoiceService  : REST / HTTP
+
+' Service-Querverbindungen (interne Kommunikation)
+AuthService  --> NotifService  : 2FA, Bestätigungs-Mail
+EventService --> GroupService  : Gruppen-Zuordnung
+EventService --> CalAPI        : Kalender-Sync\n<<HTTPS>>
+InvoiceService --> Payment     : Zahlungs-API\n<<HTTPS>>
+InvoiceService --> TicketAPI   : Ticket-Generierung\n<<HTTPS>>
+
+' Microservices → Datenbank
+AuthService     --> DBServer : SQL (5432)\n<<encrypted>>
+EventService    --> DBServer : SQL (5432)
+GroupService    --> DBServer : SQL (5432)
+TaskService     --> DBServer : SQL (5432)
+NoteService     --> DBServer : SQL (5432)
+PollService     --> DBServer : SQL (5432)
+ProviderService --> DBServer : SQL (5432)
+InvoiceService  --> DBServer : SQL (5432)
+
+' Microservices → Dateispeicher
+EventService    --> FileServer : S3 API\n(Bilder, Videos, PDFs)
+ProviderService --> FileServer : S3 API\n(Material-Dokumente)
+InvoiceService  --> FileServer : S3 API\n(Rechnungs-PDFs)
+
+' Notification → Externe Dienste
+NotifService --> SMS       : SMS API\n<<HTTPS>>
+NotifService --> EmailProv : SMTP / API\n<<HTTPS>>
+
+@enduml
